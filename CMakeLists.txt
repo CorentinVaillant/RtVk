@@ -1,4 +1,5 @@
-﻿cmake_minimum_required(VERSION 3.8)
+﻿cmake_minimum_required(VERSION 3.12)
+
 
 project("RtVk")
 
@@ -7,6 +8,7 @@ find_package(Vulkan REQUIRED)
 option(SDL_X11_XTEST OFF)
 
 add_subdirectory(libs)
+
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")

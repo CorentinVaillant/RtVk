@@ -13,3 +13,9 @@
 [submodule "libs/SDL"]
 	path = libs/SDL
 	url = https://github.com/libsdl-org/SDL
+[submodule "libs/vk-bootstrap"]
+	path = libs/vkbootstrap
+	url = https://github.com/charles-lunarg/vk-bootstrap.git
+[submodule "libs/vma"]
+	path = libs/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
