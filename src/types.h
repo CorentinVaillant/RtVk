@@ -17,26 +17,34 @@
 #include <fmt/core.h>
 #include <utility>
 
-#define VERBOSE 4
-#define NDEBUG 4
+#define NVERBOSE 4
 
 #define NO_COPY(CLASS_NAME)                                                    \
   CLASS_NAME(const CLASS_NAME &) = delete;                                     \
   CLASS_NAME &operator=(const CLASS_NAME &) = delete;
 
-#ifndef VERBOSE
+#ifndef NVERBOSE
 #define LOG(level, ...)                                                        \
   do {                                                                         \
   } while (0)
 #else
 #define LOG(level, ...)                                                        \
   do {                                                                         \
-    if (VERBOSE >= level) {                                                    \
+    if (NVERBOSE >= level) {                                                   \
       fmt::print("[log {}::{}] ", __func__, __LINE__);                         \
       fmt::println(__VA_ARGS__);                                               \
     }                                                                          \
   } while (0)
 #endif
+
+#define RED_CHAR "\e[0;31m"
+#define COLOR_RESET_CHAR "\e[0m"
+#define LOGERR(...)                                                            \
+  {                                                                            \
+    fmt::print("{}[ERROR at {}::{}]{}", RED_CHAR, __func__, __LINE__,          \
+               COLOR_RESET_CHAR);                                              \
+    fmt::println(__VA_ARGS__);                                                 \
+  }
 
 // common types
 

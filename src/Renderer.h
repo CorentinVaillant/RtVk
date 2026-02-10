@@ -2,11 +2,11 @@
 
 #include "Camera.h"
 #include "ImageBuffer.h"
+#include "graphics/vulkan_context.h"
 #include "hittables/Hittable.h"
 #include "types.h"
 
 #include "Scene.h"
-#include <cstddef>
 
 class SimpleRenderer {
 public:
@@ -44,10 +44,12 @@ protected:
 
   Color closest_hit(const Scene &scene, HitRecord record,
                     uint32_t hit_index) const {
-    return Color(record.normal / 2.f +  1.f, 1);
+    return Color(record.normal / 2.f + 0.5f, 1);
   }
 
-  Color miss(const Scene &scene, Ray r) const { return Color(r.direction, 1); }
+  Color miss(const Scene &scene, Ray r) const {
+    return Color(glm::normalize(r.direction) / 2.f + 0.5f, 1);
+  }
 
   Color post_process(Color color) const { return color; }
 
@@ -73,4 +75,5 @@ protected:
   ImageBuffer _imgBuffer;
   // Uniforms simulation
   Camera::CameraRenderInfo _camRenderInfo;
+  VulkanContext* _context = nullptr;
 };
