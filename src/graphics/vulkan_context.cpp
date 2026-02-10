@@ -1,7 +1,7 @@
 #include "vulkan_context.h"
-#include "SDL.h"
-#include "SDL_video.h"
-#include "SDL_vulkan.h"
+#include "SDL3/SDL.h"
+#include "SDL3/SDL_video.h"
+#include "SDL3/SDL_vulkan.h"
 #include "graphics/requiered_vk_features.h"
 #include "types.h"
 #include <VkBootstrap.h>
@@ -46,12 +46,12 @@ void VulkanContext::clean() {
 
 // -- Init functions --
 void VulkanContext::init_sdl(const char *app_name) {
+
   SDL_Init(SDL_INIT_VIDEO);
   SDL_WindowFlags window_flags =
       static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
-  _window = SDL_CreateWindow(app_name, SDL_WINDOWPOS_UNDEFINED,
-                             SDL_WINDOWPOS_UNDEFINED, _windowExtent.width,
+  _window = SDL_CreateWindow(app_name, _windowExtent.width,
                              _windowExtent.height, window_flags);
 
   _mainDelQueue.push_function([this]() { SDL_DestroyWindow(_window); });
@@ -76,7 +76,7 @@ void VulkanContext::init_vulkan(const char *app_name) {
   LOG(2, "Instance init.");
 
   // init surface
-  SDL_Vulkan_CreateSurface(_window, _instance, &_surface);
+  SDL_Vulkan_CreateSurface(_window, _instance, nullptr, &_surface);
   LOG(2, "Surface init.");
 
   // init physical device

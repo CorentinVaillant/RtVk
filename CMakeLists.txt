@@ -2,8 +2,9 @@
 
 project("RtVk")
 
-
 find_package(Vulkan REQUIRED)
+
+option(SDL_X11_XTEST OFF)
 
 add_subdirectory(libs)
 
