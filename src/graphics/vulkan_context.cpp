@@ -100,6 +100,7 @@ void VulkanContext::init_context(const char *app_name /* = nullptr */) {
 
   init_sdl(use_app_name);
   init_vulkan(use_app_name);
+  init_commands();
 
   // ...
 
@@ -237,7 +238,7 @@ void VulkanContext::init_commands() {
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
       .pNext = nullptr,
       .commandPool = _immediateCmdPool,
-      .level = VK_COMMAND_BUFFER_LEVEL_SECONDARY,
+      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
       .commandBufferCount = 1};
   VK_CHECK(
       vkAllocateCommandBuffers(_device, &cmd_buff_alloc_info, &_immediateCmd));

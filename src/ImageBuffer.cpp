@@ -92,5 +92,5 @@ Image ImageBuffer::write_to_gpu(VulkanContext &ctx) const{
   VkExtent3D extent = {.width = static_cast<uint32_t>(_width),
                        .height = static_cast<uint32_t>(_heigth),
                        .depth = 1};
-  return Image(ctx, extent, _format, VK_IMAGE_USAGE_SAMPLED_BIT);
+  return Image(ctx, _imgData.data(),extent, _format, VK_IMAGE_USAGE_SAMPLED_BIT);
 }

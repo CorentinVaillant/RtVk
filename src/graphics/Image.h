@@ -34,7 +34,7 @@ public:
   Image(VulkanContext &ctx, VkExtent3D size, ImgFormat format,
         VkImageUsageFlags mem_usage, bool mipmapped = false);
 
-  Image(VulkanContext &ctx, unsigned char *data, VkExtent3D size, ImgFormat format,
+  Image(VulkanContext &ctx, const unsigned char *data, VkExtent3D size, ImgFormat format,
         VkImageUsageFlags mem_usage, bool mipmapped = false);
 
   NO_COPY(Image);

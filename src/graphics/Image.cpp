@@ -28,10 +28,13 @@ Image::Image(VulkanContext &ctx, VkExtent3D size, ImgFormat format,
       vkCreateImageView(ctx._device, &imgview_create_info, nullptr, &_view));
 }
 
-Image::Image(VulkanContext &ctx, unsigned char *data, VkExtent3D size,
+Image::Image(VulkanContext &ctx, const unsigned char *data, VkExtent3D size,
              ImgFormat format, VkImageUsageFlags usage,
              bool mipmapped /* = false */)
-    : Image(ctx, size, format, usage, mipmapped) {
+    : Image(ctx, size, format,
+            usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            mipmapped) {
 
   size_t data_size =
       size.depth * size.width * size.height * format_size(format);
