@@ -18,15 +18,83 @@ bool s_use_validation_layers = false;
 #endif
 
 // -- Static impl --
-VulkanContext *static_context = nullptr;
+static VulkanContext static_context;
 bool static_is_init = false;
 
-VulkanContext *VulkanContext::get() { return static_context; }
+VulkanContext *VulkanContext::get() { return &static_context; }
 
 void VulkanContext::init(const char *app_name /* = nullptr */) {
+  static_context.init_context(app_name);
+}
+int VulkanContext::run(RunFunc run_func) {
+  assert(static_is_init);
+  static_context._shouldRun = true;
+  while (static_context._shouldRun) {
+    run_func(static_context);
+  }
+  return static_context._stopReturnCode;
+}
+void VulkanContext::cleanup() {
+  assert(static_is_init);
+  static_context.clean_context();
+}
+
+
+void VulkanContext::stop(int exit_code /*= 0*/) {
+  assert(static_is_init);
+  static_context._shouldRun = false;
+  static_context._stopReturnCode = exit_code;
+}
+
+// -- Public impl --
+
+void VulkanContext::immediate_submit(ImediatFunc &&func) {
+  assert(_isInit);
+  VK_CHECK(vkResetFences(_device, 1, &_immediateFence));
+  VK_CHECK(vkResetCommandBuffer(_immediateCmd, 0));
+
+  VkCommandBuffer cmd = _immediateCmd;
+
+  VkCommandBufferBeginInfo cmd_begin_info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      .pNext = nullptr,
+      .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+      .pInheritanceInfo = nullptr,
+  };
+
+  VK_CHECK(vkBeginCommandBuffer(_immediateCmd, &cmd_begin_info));
+  func(cmd);
+  VK_CHECK(vkEndCommandBuffer(cmd));
+
+  VkCommandBufferSubmitInfo cmd_submit_info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+      .pNext = nullptr,
+      .commandBuffer = cmd,
+      .deviceMask = 0};
+  VkSubmitInfo2 submit_info{
+      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+      .pNext = nullptr,
+      .flags = 0,
+      .waitSemaphoreInfoCount = 0,
+      .pWaitSemaphoreInfos = nullptr,
+
+      .commandBufferInfoCount = 1,
+      .pCommandBufferInfos = &cmd_submit_info,
+
+      .signalSemaphoreInfoCount = 0,
+      .pSignalSemaphoreInfos = nullptr,
+  };
+
+  VK_CHECK(vkQueueSubmit2(_graphicQueue, 1, &submit_info, _immediateFence));
+  VK_CHECK(vkWaitForFences(_device, 1, &_immediateFence, VK_TRUE, 999'999'999));
+}
+
+// -- Private impl --
+void VulkanContext::init_context(const char *app_name /* = nullptr */) {
   LOG(1, "Initialasing the context...");
-  assert(static_context == nullptr);
-  static_context = this;
+  LOG(2, "Use of validation layers is set to {}", s_use_validation_layers);
+  assert(static_is_init == false);
+  assert(_isInit == false);
 
   const char *use_app_name = app_name ? app_name : "Vulkan app";
 
@@ -35,14 +103,12 @@ void VulkanContext::init(const char *app_name /* = nullptr */) {
 
   // ...
 
-  LOG(1, "Context init at {}.", static_cast<void *>(static_context));
+  LOG(1, "Context init at {}.", static_cast<void *>(&static_context));
+  static_is_init = true;
+  _isInit = true;
 }
 
-void VulkanContext::clean() {
-  assert(_isInit);
-
-  _mainDelQueue.flush();
-}
+void VulkanContext::clean_context() { _mainDelQueue.flush(); }
 
 // -- Init functions --
 void VulkanContext::init_sdl(const char *app_name) {
@@ -134,7 +200,18 @@ void VulkanContext::init_vulkan(const char *app_name) {
   allocator_create_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
   vmaCreateAllocator(&allocator_create_info, &_memAllocator);
 
+  // init fence
+  VkFenceCreateInfo fence_create_info = {
+      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+      .pNext = nullptr,
+      .flags = 0};
+
+  vkCreateFence(_device, &fence_create_info, nullptr, &_immediateFence);
+
+  // init comand buffer
+
   _mainDelQueue.push_function([this]() {
+    vkDestroyFence(_device, _immediateFence, nullptr);
     vmaDestroyAllocator(_memAllocator);
     // Queues don't need to be destroyed
     vkDestroyDevice(_device, nullptr);
@@ -142,4 +219,29 @@ void VulkanContext::init_vulkan(const char *app_name) {
     vkb::destroy_debug_utils_messenger(_instance, _debugUtilMsg);
     vkDestroyInstance(_instance, nullptr);
   });
+}
+
+void VulkanContext::init_commands() {
+  // init immediate cmd
+  VkCommandPoolCreateInfo cmd_pool_create_info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+      .pNext = nullptr,
+      .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+      .queueFamilyIndex = _graphicQueueFamily,
+  };
+
+  VK_CHECK(vkCreateCommandPool(_device, &cmd_pool_create_info, nullptr,
+                               &_immediateCmdPool));
+
+  VkCommandBufferAllocateInfo cmd_buff_alloc_info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+      .pNext = nullptr,
+      .commandPool = _immediateCmdPool,
+      .level = VK_COMMAND_BUFFER_LEVEL_SECONDARY,
+      .commandBufferCount = 1};
+  VK_CHECK(
+      vkAllocateCommandBuffers(_device, &cmd_buff_alloc_info, &_immediateCmd));
+
+  _mainDelQueue.push_function(
+      [this]() { vkDestroyCommandPool(_device, _immediateCmdPool, nullptr); });
 }

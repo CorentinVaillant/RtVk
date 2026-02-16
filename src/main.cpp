@@ -13,26 +13,32 @@
 #include "Renderer.h"
 #include "types.h"
 
-
 int main() {
   fmt::println("Starting app !");
 
-  VulkanContext context;
-  context.init();
+  VulkanContext::init("RtVk");
 
-  std::vector<Sphere> objects = {Sphere{glm::vec3(-5.05, 0, 0), 5.},
-                                 Sphere{glm::vec3(5.05, 0, 0), 5.}};
+  VulkanContext::run([](VulkanContext &ctx) {
+    LOG(1, "Running ray tracer...");
+    std::vector<Sphere> objects = {Sphere{glm::vec3(-5.05, 0, 0), 5.},
+                                   Sphere{glm::vec3(5.05, 0, 0), 5.}};
 
-  Scene scene{Camera(), std::make_unique<HittableVector>(std::move(objects))};
+    Scene scene{Camera(), std::make_unique<HittableVector>(std::move(objects))};
 
-  SimpleRenderer renderer(1000, 1000);
+    SimpleRenderer renderer(500,500);
 
-  renderer.render(scene);
-  auto &img_buff = renderer.get_img_buff();
-  img_buff.write_on_disk("test.png", ImageFormat::PNG);
+    renderer.render(scene);
+    auto &img_buff = renderer.get_img_buff();
+    img_buff.write_on_disk("test.png", ImageFormat::PNG);
+    img_buff.write_to_gpu(ctx);
 
-  fmt::println("Done !");
+    LOG(1, "Running ray done !\n Stop");
+    VulkanContext::stop();
+  });
 
-  context.clean();
+  VulkanContext::cleanup();
+
+  fmt::println("Stopped !");
+
   return 0;
 }

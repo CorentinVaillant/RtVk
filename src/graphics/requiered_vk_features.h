@@ -12,6 +12,7 @@ constexpr VkPhysicalDeviceVulkan13Features REQUIRED_VULKAN_13_FEATURES = {
 #include <vulkan/vulkan_core.h>
 constexpr VkPhysicalDeviceVulkan12Features REQUIRED_VULKAN_12_FEATURES = {
     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+    .bufferDeviceAddress = true,
 };
 
 // vk 1.1 features

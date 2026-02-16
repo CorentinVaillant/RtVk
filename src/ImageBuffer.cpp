@@ -1,21 +1,12 @@
 #include "ImageBuffer.h"
+#include "graphics/Image.h"
+#include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
 constexpr size_t MAX_COLOR_SIZE = 4;
-
-size_t format_size(ColorFormat format) {
-  switch (format) {
-  case RGBA: /*  = VK_FORMAT_R8G8B8A8_UNORM */
-    return 4;
-  case RGB: /*  = VK_FORMAT_R8G8B8_UNORM */
-    return 3;
-  case R: /*  = VK_FORMAT_R8_UNORM */
-  default:
-    return 1;
-  }
-}
 
 uint8_t floatnorm_to_unorm(float t) {
   if (std::isnan(t) || t < 0.)
@@ -23,7 +14,7 @@ uint8_t floatnorm_to_unorm(float t) {
   return static_cast<uint8_t>(std::min(t, 1.f) * 255);
 }
 
-size_t color_to_format(Color color, ColorFormat format,
+size_t color_to_format(Color color, ImgFormat format,
                        std::array<uint8_t, MAX_COLOR_SIZE> *written_color) {
   switch (format) {
   case RGBA: /*  = VK_FORMAT_R8G8B8A8_UNORM */
@@ -37,7 +28,9 @@ size_t color_to_format(Color color, ColorFormat format,
     written_color->at(1) = floatnorm_to_unorm(color[1] * color[3]);
     written_color->at(2) = floatnorm_to_unorm(color[2] * color[3]);
     break;
-  case R: /*  = VK_FORMAT_R8_UNORM */
+
+  case R:     /*  = VK_FORMAT_R8_UNORM */
+  case DEPTH: /* = VK_FORMAT_D32_SFLOAT */
   default:
     written_color->at(0) =
         floatnorm_to_unorm(((color[0] + color[1] + color[2]) / 3.f) * color[3]);
@@ -51,7 +44,7 @@ size_t color_to_format(Color color, ColorFormat format,
 // -- Constructors
 
 ImageBuffer::ImageBuffer(size_t width, size_t height,
-                         ColorFormat format /*= ColorFormat::RGBA */)
+                         ImgFormat format /*= ColorFormat::RGBA */)
     : _width(width), _heigth(height), _format(format) {
   size_t pixel_size = format_size(format);
   size_t buffer_size = pixel_size * width * height;
@@ -93,4 +86,11 @@ int ImageBuffer::write_on_disk(const char *filename, ImageFormat img_format,
     return stbi_write_jpg(filename, iwidth, iheigth, iformat_size,
                           _imgData.data(), jpg_quality);
   }
+}
+
+Image ImageBuffer::write_to_gpu(VulkanContext &ctx) const{
+  VkExtent3D extent = {.width = static_cast<uint32_t>(_width),
+                       .height = static_cast<uint32_t>(_heigth),
+                       .depth = 1};
+  return Image(ctx, extent, _format, VK_IMAGE_USAGE_SAMPLED_BIT);
 }

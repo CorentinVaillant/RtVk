@@ -4,6 +4,7 @@ add_executable (RtVk
   main.cpp
   ImageBuffer.cpp
   graphics/vulkan_context.cpp
+  graphics/Image.cpp
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g -D NDEBUG -D NVERB=5 -Wno-nullability-completeness")

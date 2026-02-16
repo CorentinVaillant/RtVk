@@ -13,11 +13,15 @@
 #include <vector>
 // glm
 #include <glm/common.hpp>
+// vulkan
+#include <vulkan/vk_enum_string_helper.h>
 // other
 #include <fmt/core.h>
 #include <utility>
 
 #define NVERBOSE 4
+
+// -- Macros --
 
 #define NO_COPY(CLASS_NAME)                                                    \
   CLASS_NAME(const CLASS_NAME &) = delete;                                     \
@@ -46,8 +50,17 @@
     fmt::println(__VA_ARGS__);                                                 \
   }
 
-// common types
+#define VK_CHECK(x)                                                            \
+  do {                                                                         \
+    VkResult err = x;                                                          \
+    if (err) {                                                                 \
+      fmt::println("[{}::{} ({})] Detected Vulkan error: {}", __func__,        \
+                   __LINE__, #x, string_VkResult(err));                        \
+      abort();                                                                 \
+    }                                                                          \
+  } while (0)
 
+// -- Common types --
 struct Ray {
   glm::vec3 origin;
   glm::vec3 direction;
