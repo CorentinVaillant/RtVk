@@ -22,7 +22,6 @@ public:
   static void stop(int exit_code = 0);
 
   void immediate_submit(ImediatFunc &&func);
-  
 
 private:
   // -- Methods
@@ -30,7 +29,8 @@ private:
   void clean_context();
   void init_sdl(const char *app_name);
   void init_vulkan(const char *app_name);
-  void init_commands(); // TODO, init cmd buffers (_immediateComandBuffer)
+  void init_commands();
+  // void init_compute_pipeline();
 
   // -- Attributs
   bool _isInit = false;

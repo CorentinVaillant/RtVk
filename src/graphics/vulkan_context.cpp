@@ -101,6 +101,7 @@ void VulkanContext::init_context(const char *app_name /* = nullptr */) {
   init_sdl(use_app_name);
   init_vulkan(use_app_name);
   init_commands();
+  // init_compute_pipeline();
 
   // ...
 

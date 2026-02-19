@@ -1,56 +1,108 @@
 #pragma once
 
-#include <vulkan/vulkan_core.h>
+#include "graphics/vulkan_context.h"
+#include "types.h"
+#include <type_traits>
 
-inline VkImageSubresourceRange
-image_subresource_range(VkImageAspectFlags aspect_mask) {
-  VkImageSubresourceRange subImage{};
-  subImage.aspectMask = aspect_mask;
-  subImage.baseMipLevel = 0;
-  subImage.levelCount = VK_REMAINING_MIP_LEVELS;
-  subImage.baseArrayLayer = 0;
-  subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
+// -- Utils functions
 
-  return subImage;
-}
+VkImageSubresourceRange image_subresource_range(VkImageAspectFlags aspect_mask);
 
-inline void transition_image(VkCommandBuffer cmd, VkImage image,
-                             VkImageLayout curr_layout,
-                             VkImageLayout new_layout) {
+void transition_image(VkCommandBuffer cmd, VkImage image,
+                      VkImageLayout curr_layout, VkImageLayout new_layout);
 
-  VkImageAspectFlags aspect =
-      new_layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
-          ? VK_IMAGE_ASPECT_DEPTH_BIT
-          : VK_IMAGE_ASPECT_COLOR_BIT;
+// -- Utils Classes
 
-  VkImageMemoryBarrier2 img_barrier{
-      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-      .pNext = nullptr,
+class DescriptorAllocator;
 
-      .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-      .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
-      .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-      .dstAccessMask =
-          VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT,
+class DescriptorSetLayout {
+public:
+  DescriptorSetLayout(VkDevice device, VkDescriptorSetLayout descr_set_layout);
+  NO_COPY(DescriptorSetLayout);
 
-      .oldLayout = curr_layout,
-      .newLayout = new_layout,
-      //   .srcQueueFamilyIndex = 0,
-      //   .dstQueueFamilyIndex = 0,
-      .image = image,
-      .subresourceRange = image_subresource_range(aspect),
+  // -- Move constructor --
+  DescriptorSetLayout(DescriptorSetLayout &&rval)
+      : _descrSetLayout(rval._descrSetLayout), _ctxDevice(rval._ctxDevice) {}
+
+  DescriptorSetLayout &operator=(DescriptorSetLayout &&other) {
+    if(this != &other){
+      _descrSetLayout = other._descrSetLayout;
+      _ctxDevice = other._ctxDevice;
+    }
+
+    return *this;
+  }
+
+  ~DescriptorSetLayout() {
+    vkDestroyDescriptorSetLayout(_ctxDevice, _descrSetLayout, nullptr);
+  }
+
+public:
+  VkDescriptorSetLayout _descrSetLayout;
+
+private:
+  VkDevice _ctxDevice;
+};
+
+class DescriptorAllocator {
+public:
+  struct PoolSizeRatio {
+    VkDescriptorType type;
+    float ratio;
   };
 
-  VkDependencyInfo dep_info = {
-      .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-      .pNext = nullptr,
-      .dependencyFlags = {},
-      .memoryBarrierCount = 0,
-      .pMemoryBarriers = nullptr,
-      .bufferMemoryBarrierCount = 0,
-      .pBufferMemoryBarriers = nullptr,
-      .imageMemoryBarrierCount = 1,
-      .pImageMemoryBarriers = &img_barrier,
+  DescriptorAllocator(VulkanContext &ctx, uint32_t init_size,
+                      std::span<PoolSizeRatio> sizes);
+  NO_COPY(DescriptorAllocator);
+
+  ~DescriptorAllocator();
+
+  // Methods
+  void clear();
+  VkDescriptorSet allocate(VkDescriptorSetLayout layout, void *pNext = nullptr);
+  VkDescriptorSet allocate(DescriptorSetLayout &layout) {
+    return allocate(layout._descrSetLayout);
+  }
+
+private:
+  VkDescriptorPool get_pool();
+  VkDescriptorPool create_pool();
+
+  // Members
+  VkDevice _ctxDevice;
+  std::vector<PoolSizeRatio> _ratios;
+  std::vector<VkDescriptorPool> _fullPools;
+  std::vector<VkDescriptorPool> _readyPools;
+  uint32_t _setPerPools;
+
+  static constexpr size_t MAX_SIZE = 4096;
+};
+
+// -- Utils Builders
+
+struct DescriptorLayoutBuilder {
+  std::vector<VkDescriptorSetLayoutBinding> _bindings;
+
+  DescriptorLayoutBuilder &add_binding(uint32_t binding, VkDescriptorType type);
+  void clear() { _bindings.clear(); }
+  DescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages,
+                            void *pNext = nullptr,
+                            VkDescriptorSetLayoutCreateFlags flags = 0);
+};
+
+// -- Utils Interfaces
+
+class IDescriptable {
+public:
+  static DescriptorSetLayout describe(VkDevice device,
+                                      VkShaderStageFlags shader_stages) {
+    DescriptorLayoutBuilder builder;
+    builder.clear();
+    return builder.build(device, shader_stages);
   };
-  vkCmdPipelineBarrier2(cmd, &dep_info);
-}
+};
+
+// -- Concepts
+
+template <typename T>
+concept Descriptable = std::is_base_of<IDescriptable, T>::value;

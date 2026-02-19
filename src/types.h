@@ -18,6 +18,7 @@
 // other
 #include <fmt/core.h>
 #include <utility>
+#include <utils/ansi_code.h>
 
 #define NVERBOSE 4
 
@@ -41,12 +42,17 @@
   } while (0)
 #endif
 
-#define RED_CHAR "\e[0;31m"
-#define COLOR_RESET_CHAR "\e[0m"
+#define LOGOK(...)                                                             \
+  do {                                                                         \
+    fmt::print("{}OK{} [{}::{}]", ansi_code::GRN, ansi_code::reset, __func__,  \
+               __LINE__);                                                      \
+    fmt::println(__VA_ARGS__);                                                 \
+  } while (0)
+
 #define LOGERR(...)                                                            \
   {                                                                            \
-    fmt::print("{}[ERROR at {}::{}]{}", RED_CHAR, __func__, __LINE__,          \
-               COLOR_RESET_CHAR);                                              \
+    fmt::print("{}ERROR{}[{}::{}] ", ansi_code::RED,                           \
+               ansi_code::reset, __func__, __LINE__);                           \
     fmt::println(__VA_ARGS__);                                                 \
   }
 

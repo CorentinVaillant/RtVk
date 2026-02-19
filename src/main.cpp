@@ -1,5 +1,3 @@
-#include <ranges>
-
 #include "Camera.h"
 #include "ImageBuffer.h"
 #include "fmt/core.h"
@@ -11,6 +9,7 @@
 #include <cassert>
 
 #include "Renderer.h"
+#include "test.h"
 #include "types.h"
 
 int main() {
@@ -19,6 +18,9 @@ int main() {
   VulkanContext::init("RtVk");
 
   VulkanContext::run([](VulkanContext &ctx) {
+
+    test(ctx);
+
     LOG(1, "Running ray tracer...");
     std::vector<Sphere> objects = {Sphere{glm::vec3(-5.05, 0, 0), 5.},
                                    Sphere{glm::vec3(5.05, 0, 0), 5.}};

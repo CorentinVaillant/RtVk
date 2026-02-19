@@ -3,11 +3,13 @@
 add_executable (RtVk 
   main.cpp
   ImageBuffer.cpp
+  test.cpp
   graphics/vulkan_context.cpp
   graphics/Image.cpp
+  graphics/utils.cpp
 )
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g -D NDEBUG -D NVERB=5 -Wno-nullability-completeness")
+#remove -D NTEST to pass testing
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g -D NDEBUG -D NVERB=5 -D NTEST -Wno-nullability-completeness")
 set_property(TARGET RtVk PROPERTY CXX_STANDARD 20)
 target_compile_features(RtVk PUBLIC cxx_std_23)
 target_compile_definitions(RtVk PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)

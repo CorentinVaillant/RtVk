@@ -19,8 +19,9 @@ add_subdirectory(src)
 
 message("Compiler : ${CMAKE_CXX_COMPILER}")
 
-find_program(GLSL_VALIDATOR glslangValidator HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
 
+# GLSL shaders compilation
+find_program(GLSL_VALIDATOR glslangValidator HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
 
 file(GLOB_RECURSE GLSL_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/shaders/*.frag"
@@ -29,9 +30,9 @@ file(GLOB_RECURSE GLSL_SOURCE_FILES
 )
 
 foreach(GLSL ${GLSL_SOURCE_FILES})
-  message(STATUS "BUILDING SHADER")
+  message(STATUS "Building shader : " ${GLSL})
   get_filename_component(FILE_NAME ${GLSL} NAME)
-  set(SPIRV "${PROJECT_SOURCE_DIR}/shaders/${FILE_NAME}.spv")
+  set(SPIRV "${PROJECT_SOURCE_DIR}/bin/shaders/${FILE_NAME}.spv")
   message(STATUS ${GLSL})
   add_custom_command(
     OUTPUT ${SPIRV}
@@ -40,7 +41,28 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)
 
+# SLANG shader compilation
+find_program(SLANG_VALIDATOR slangc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
+
+file(GLOB_RECURSE SLANG_SOURCE_FILE
+  "${PROJECT_SOURCE_DIR}/shaders/*.slang"
+)
+
+# slangc ./image_display.slang  -target spirv -o test.out -entry main
+foreach(SLANG ${SLANG_SOURCE_FILE})
+  message(STATUS "Adding shader to build : " ${SLANG})
+  get_filename_component(FILE_NAME ${SLANG} NAME)
+  set(SPIRV "${PROJECT_SOURCE_DIR}/bin/shaders/${FILE_NAME}.spv")
+  add_custom_command(
+    OUTPUT ${SPIRV}
+    COMMAND ${SLANG_VALIDATOR} -target spirv -entry main -o ${SPIRV} -- ${SLANG}
+    DEPENDS ${SLANG})
+  list(APPEND SPIRV_BINARY_FILES ${SPIRV})
+endforeach(SLANG)
+
 add_custom_target(
   Shaders
   DEPENDS ${SPIRV_BINARY_FILES}
 )
+
+add_dependencies(RtVk Shaders)
