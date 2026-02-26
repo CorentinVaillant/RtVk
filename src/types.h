@@ -3,8 +3,10 @@
 // std
 #include <array>
 #include <cmath>
+#include <concepts>
 #include <cstddef>
 #include <ctype.h>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -21,6 +23,15 @@
 #include <utils/ansi_code.h>
 
 #define NVERBOSE 4
+
+// -- Log Levels --
+enum LogLvl {
+  SEVERE = 0,
+  WARNING = 1,
+  INFO = 2,
+  CONFIG = 3,
+  FINE = 4,
+};
 
 // -- Macros --
 
@@ -44,15 +55,15 @@
 
 #define LOGOK(...)                                                             \
   do {                                                                         \
-    fmt::print("{}OK{} [{}::{}]", ansi_code::GRN, ansi_code::reset, __func__,  \
-               __LINE__);                                                      \
+    fmt::print("[{} OK {}] {}::{} ", ansi_code::GRN, ansi_code::reset,         \
+               __func__, __LINE__);                                            \
     fmt::println(__VA_ARGS__);                                                 \
   } while (0)
 
 #define LOGERR(...)                                                            \
   {                                                                            \
-    fmt::print("{}ERROR{}[{}::{}] ", ansi_code::RED,                           \
-               ansi_code::reset, __func__, __LINE__);                           \
+    fmt::print("[{}ERR {}] {}::{} ", ansi_code::RED, ansi_code::reset,         \
+               __func__, __LINE__);                                            \
     fmt::println(__VA_ARGS__);                                                 \
   }
 
@@ -60,9 +71,9 @@
   do {                                                                         \
     VkResult err = x;                                                          \
     if (err) {                                                                 \
-      fmt::println("[{}::{} ({})] Detected Vulkan error: {}", __func__,        \
-                   __LINE__, #x, string_VkResult(err));                        \
-      abort();                                                                 \
+      LOGERR("[LOG{}::{} ({})] Detected Vulkan error: {}", __func__, __LINE__, \
+             #x, string_VkResult(err));                                        \
+      throw std::runtime_error("VkError");                                     \
     }                                                                          \
   } while (0)
 
@@ -162,6 +173,68 @@ inline constexpr BBox BBOX_UNIVERSE = {INTERVAL_REELS, INTERVAL_REELS,
                                        INTERVAL_REELS};
 inline constexpr BBox BBOX_EMPTY = {INTERVAL_EMPTY, INTERVAL_EMPTY,
                                     INTERVAL_EMPTY};
+
+// -- Common templates --
+
+template <typename D, typename T>
+concept DestructorOf = requires(D d, T t) {
+  { d.release(t) };
+  { d.discard(t) } -> std::same_as<T>;
+};
+
+template <typename T, typename D>
+  requires DestructorOf<D, T>
+class ScopeGuard {
+public:
+  ScopeGuard(T data, D destructor)
+      : _data(data), _destructor(std::move(destructor)) {}
+
+  ScopeGuard(ScopeGuard &&rval)
+      : _data(std::move(rval._data)), _destructor(std::move(rval._destructor)),
+        _is_active(rval._is_active) {
+    rval._is_active = false;
+  }
+
+  ScopeGuard(D &&destructor)
+    requires std::default_initializable<T>
+      : ScopeGuard(T(), std::move(destructor)) {}
+
+  NO_COPY(ScopeGuard);
+
+  T &operator*() { return _data; }
+
+  const T &operator*() const { return _data; }
+
+  T &operator=(ScopeGuard &&rval) {
+    if (this != &rval) {
+      _data = rval._data;
+      _destructor = rval._destructor;
+      _is_active = rval._is_active;
+
+      rval._is_active = false;
+    }
+    return *this;
+  }
+
+  // -- methods --
+  T discard() & = delete;
+  T discard() && {
+    _is_active = false;
+    return _destructor.discard(std::move(_data));
+  }
+  std::pair<T, D> discard_all() && {
+    _is_active = false;
+    return std::make_pair(std::move(_data), std::move(_destructor));
+  }
+
+  ~ScopeGuard() { _destructor.release(std::move(_data)); }
+
+  // -- members --
+private:
+  T _data;
+  D _destructor;
+  bool _is_active = true;
+};
 
 // -- Common functions --
 

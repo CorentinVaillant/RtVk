@@ -75,6 +75,11 @@ Image::Image(VulkanContext &ctx, const unsigned char *data, VkExtent3D size,
 
 // -- public
 
+void Image::transition(VkCommandBuffer cmd, VkImageLayout current_layout,
+                       VkImageLayout next_layout) {
+  transition_image(cmd, _vkImage, current_layout, next_layout);
+}
+
 // -- private
 VkImageCreateInfo Image::create_image_create_info(VkImageUsageFlags usage,
                                                   bool mipmapped) {

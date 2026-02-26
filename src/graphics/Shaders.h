@@ -38,6 +38,17 @@ public:
 
   NO_COPY(Shader);
 
+  // -- Move constr
+  Shader(Shader &&rval)
+      : _shaderModule(rval._shaderModule), _device(rval._device) {}
+  Shader &operator=(Shader &&rval) {
+    if (this != &rval) {
+      _shaderModule = rval._shaderModule;
+      _device = rval._device;
+    }
+    return *this;
+  }
+
   ~Shader() { vkDestroyShaderModule(_device, _shaderModule, nullptr); }
 
 private:

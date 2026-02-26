@@ -1,5 +1,6 @@
 #pragma once
 
+#include "graphics/utils.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"
 #include <cstddef>
@@ -34,20 +35,28 @@ public:
   Image(VulkanContext &ctx, VkExtent3D size, ImgFormat format,
         VkImageUsageFlags mem_usage, bool mipmapped = false);
 
-  Image(VulkanContext &ctx, const unsigned char *data, VkExtent3D size, ImgFormat format,
-        VkImageUsageFlags mem_usage, bool mipmapped = false);
+  Image(VulkanContext &ctx, const unsigned char *data, VkExtent3D size,
+        ImgFormat format, VkImageUsageFlags mem_usage, bool mipmapped = false);
 
   NO_COPY(Image);
 
   // TODO move constr
 
-  ~Image() { 
+  ~Image() {
     vkDestroyImageView(_device, _view, nullptr);
-    vkDestroyImage(_device, _vkImage, nullptr); }
+    vkDestroyImage(_device, _vkImage, nullptr);
+  }
+
+  // -- Methods --
+  void transition(
+      VkCommandBuffer cmd,
+      VkImageLayout current_layout = VK_IMAGE_LAYOUT_UNDEFINED,
+      VkImageLayout next_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 private:
   // -- Methods --
-  VkImageCreateInfo create_image_create_info(VkImageUsageFlags usage,bool mipmapped);
+  VkImageCreateInfo create_image_create_info(VkImageUsageFlags usage,
+                                             bool mipmapped);
   VkImageViewCreateInfo create_image_view_create_info(uint32_t mip_level_count);
 
   // -- Atributs --

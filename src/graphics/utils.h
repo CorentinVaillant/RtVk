@@ -1,8 +1,9 @@
 #pragma once
 
+#include "graphics/raii_graphic.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"
-#include <type_traits>
+#include <vulkan/vulkan_core.h>
 
 // -- Utils functions
 
@@ -13,7 +14,45 @@ void transition_image(VkCommandBuffer cmd, VkImage image,
 
 // -- Utils Classes
 
-class DescriptorAllocator;
+enum DescriptorType {
+  StorageImage = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+  UniformBuffer = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+  // ...
+};
+
+enum SinglePipelineStage {
+  ComputeStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+  VertexStage = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+  FragmentStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+  // ...
+};
+
+struct PipelineStages {
+  VkPipelineStageFlags _vkPipelineStageFlags = 0x0;
+
+  PipelineStages(const std::initializer_list<SinglePipelineStage> &stages) {
+    for (auto stage : stages)
+      _vkPipelineStageFlags |= static_cast<VkPipelineStageFlagBits>(stage);
+  }
+  PipelineStages(SinglePipelineStage stage) : PipelineStages({stage}) {}
+};
+
+enum SingleShaderStage {
+  ComputeShader = VK_SHADER_STAGE_COMPUTE_BIT,
+  VertexShader = VK_SHADER_STAGE_VERTEX_BIT,
+  FragmentShader = VK_SHADER_STAGE_FRAGMENT_BIT,
+  // ...
+};
+
+struct ShaderStages {
+  VkShaderStageFlags _vkShaderStageFlags = 0x0;
+
+  ShaderStages(const std::initializer_list<SingleShaderStage> &stages) {
+    for (auto stage : stages)
+      _vkShaderStageFlags |= static_cast<VkShaderStageFlagBits>(stage);
+  }
+  ShaderStages(SingleShaderStage stage) : ShaderStages({stage}) {}
+};
 
 class DescriptorSetLayout {
 public:
@@ -25,7 +64,7 @@ public:
       : _descrSetLayout(rval._descrSetLayout), _ctxDevice(rval._ctxDevice) {}
 
   DescriptorSetLayout &operator=(DescriptorSetLayout &&other) {
-    if(this != &other){
+    if (this != &other) {
       _descrSetLayout = other._descrSetLayout;
       _ctxDevice = other._ctxDevice;
     }
@@ -47,7 +86,7 @@ private:
 class DescriptorAllocator {
 public:
   struct PoolSizeRatio {
-    VkDescriptorType type;
+    DescriptorType type;
     float ratio;
   };
 
@@ -59,8 +98,41 @@ public:
 
   // Methods
   void clear();
-  VkDescriptorSet allocate(VkDescriptorSetLayout layout, void *pNext = nullptr);
-  VkDescriptorSet allocate(DescriptorSetLayout &layout) {
+  Raii_VkDescriptorSet allocate(VkDescriptorSetLayout layout,
+                                void *pNext = nullptr) {
+
+    VkDescriptorPool pool_to_use = get_pool();
+
+    VkDescriptorSetAllocateInfo alloc_info{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = pNext,
+        .descriptorPool = pool_to_use,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &layout,
+    };
+
+    VkDescriptorSet result_descr_set;
+
+    VkResult result =
+        vkAllocateDescriptorSets(_ctxDevice, &alloc_info, &result_descr_set);
+
+    // alloc failed
+    if (result == VK_ERROR_OUT_OF_POOL_MEMORY ||
+        result == VK_ERROR_FRAGMENTED_POOL) {
+      _fullPools.push_back(pool_to_use);
+      pool_to_use = get_pool();
+      alloc_info.descriptorPool = pool_to_use;
+
+      VK_CHECK(
+          vkAllocateDescriptorSets(_ctxDevice, &alloc_info, &result_descr_set));
+    } else {
+      VK_CHECK(result);
+    }
+
+    _readyPools.push_back(pool_to_use);
+    return Raii_VkDescriptorSet(result_descr_set, {_ctxDevice, pool_to_use});
+  }
+  Raii_VkDescriptorSet allocate(DescriptorSetLayout &layout) {
     return allocate(layout._descrSetLayout);
   }
 
@@ -78,31 +150,37 @@ private:
   static constexpr size_t MAX_SIZE = 4096;
 };
 
+// -- DescriptorWritter
+class DescriptorWriter {
+
+public:
+  DescriptorWriter() {};
+  NO_COPY(DescriptorWriter);
+
+  // Methods
+  void write_image(uint32_t binding, VkImageView view, VkSampler sampler,
+                   VkImageLayout layout, VkDescriptorType descriptor_type);
+  void write_buffer(uint32_t binding, VkBuffer buffer, size_t size,
+                    size_t offset, VkDescriptorType descriptor_type);
+
+  void clear();
+  void update_set(VkDevice device, VkDescriptorSet set);
+
+  // Attributs
+private:
+  std::deque<VkDescriptorImageInfo> _img_infos;
+  std::deque<VkDescriptorBufferInfo> _buffer_infos;
+  std::vector<VkWriteDescriptorSet> _writes;
+};
+
 // -- Utils Builders
 
 struct DescriptorLayoutBuilder {
   std::vector<VkDescriptorSetLayoutBinding> _bindings;
 
-  DescriptorLayoutBuilder &add_binding(uint32_t binding, VkDescriptorType type);
+  DescriptorLayoutBuilder &add_binding(uint32_t binding, DescriptorType type);
   void clear() { _bindings.clear(); }
-  DescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages,
+  DescriptorSetLayout build(VkDevice device, ShaderStages stages,
                             void *pNext = nullptr,
                             VkDescriptorSetLayoutCreateFlags flags = 0);
 };
-
-// -- Utils Interfaces
-
-class IDescriptable {
-public:
-  static DescriptorSetLayout describe(VkDevice device,
-                                      VkShaderStageFlags shader_stages) {
-    DescriptorLayoutBuilder builder;
-    builder.clear();
-    return builder.build(device, shader_stages);
-  };
-};
-
-// -- Concepts
-
-template <typename T>
-concept Descriptable = std::is_base_of<IDescriptable, T>::value;

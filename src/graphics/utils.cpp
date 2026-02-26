@@ -1,4 +1,5 @@
 #include "graphics/utils.h"
+
 #include "types.h"
 #include <vulkan/vulkan_core.h>
 
@@ -60,11 +61,11 @@ void transition_image(VkCommandBuffer cmd, VkImage image,
 
 // -- DescriptorLayoutBuilder
 
-DescriptorLayoutBuilder& DescriptorLayoutBuilder::add_binding(uint32_t binding,
-                                          VkDescriptorType type) {
+DescriptorLayoutBuilder &
+DescriptorLayoutBuilder::add_binding(uint32_t binding, DescriptorType type) {
   VkDescriptorSetLayoutBinding new_bind = {
       .binding = binding,
-      .descriptorType = type,
+      .descriptorType = static_cast<VkDescriptorType>(type),
       .descriptorCount = 1,
       .stageFlags = {},              // Will be init when building
       .pImmutableSamplers = nullptr, // defaulted
@@ -75,11 +76,10 @@ DescriptorLayoutBuilder& DescriptorLayoutBuilder::add_binding(uint32_t binding,
 }
 
 DescriptorSetLayout DescriptorLayoutBuilder::build(
-    VkDevice device, VkShaderStageFlags shader_stages,
-    void *pNext /* = nullptr */,
+    VkDevice device, ShaderStages stages, void *pNext /* = nullptr */,
     VkDescriptorSetLayoutCreateFlags flags /* = 0 */) {
   for (auto &b : _bindings)
-    b.stageFlags |= shader_stages;
+    b.stageFlags |= stages._vkShaderStageFlags;
 
   VkDescriptorSetLayoutCreateInfo infos = {
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -106,7 +106,8 @@ DescriptorSetLayout::DescriptorSetLayout(VkDevice device,
 DescriptorAllocator::DescriptorAllocator(VulkanContext &ctx, uint32_t init_size,
                                          std::span<PoolSizeRatio> sizes)
     : _ctxDevice(ctx._device),
-      _ratios(sizes.data(), sizes.data() + sizes.size()),_setPerPools(init_size) {
+      _ratios(sizes.data(), sizes.data() + sizes.size()),
+      _setPerPools(init_size) {
 
   VkDescriptorPool new_pool = create_pool();
 
@@ -124,8 +125,6 @@ DescriptorAllocator::~DescriptorAllocator() {
   }
   _fullPools.clear();
   _readyPools.clear();
-
-
 }
 
 void DescriptorAllocator::clear() {
@@ -139,40 +138,41 @@ void DescriptorAllocator::clear() {
   _fullPools.clear();
 }
 
-VkDescriptorSet DescriptorAllocator::allocate(VkDescriptorSetLayout layout,
-                                              void *pNext /* = nullptr */) {
+// Raii_VkDescriptorSet
+// DescriptorAllocator::allocate(VkDescriptorSetLayout layout,
+//                               void *pNext /* = nullptr */) {
 
-  VkDescriptorPool pool_to_use = get_pool();
+//   VkDescriptorPool pool_to_use = get_pool();
 
-  VkDescriptorSetAllocateInfo alloc_info{
-      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-      .pNext = pNext,
-      .descriptorPool = pool_to_use,
-      .descriptorSetCount = 1,
-      .pSetLayouts = &layout,
-  };
+//   VkDescriptorSetAllocateInfo alloc_info{
+//       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+//       .pNext = pNext,
+//       .descriptorPool = pool_to_use,
+//       .descriptorSetCount = 1,
+//       .pSetLayouts = &layout,
+//   };
 
-  VkDescriptorSet result_descr_set;
+//   VkDescriptorSet result_descr_set;
 
-  VkResult result =
-      vkAllocateDescriptorSets(_ctxDevice, &alloc_info, &result_descr_set);
+//   VkResult result =
+//       vkAllocateDescriptorSets(_ctxDevice, &alloc_info, &result_descr_set);
 
-  // alloc failed
-  if (result == VK_ERROR_OUT_OF_POOL_MEMORY ||
-      result == VK_ERROR_FRAGMENTED_POOL) {
-    _fullPools.push_back(pool_to_use);
-    pool_to_use = get_pool();
-    alloc_info.descriptorPool = pool_to_use;
+//   // alloc failed
+//   if (result == VK_ERROR_OUT_OF_POOL_MEMORY ||
+//       result == VK_ERROR_FRAGMENTED_POOL) {
+//     _fullPools.push_back(pool_to_use);
+//     pool_to_use = get_pool();
+//     alloc_info.descriptorPool = pool_to_use;
 
-    VK_CHECK(
-        vkAllocateDescriptorSets(_ctxDevice, &alloc_info, &result_descr_set));
-  } else {
-    VK_CHECK(result);
-  }
+//     VK_CHECK(
+//         vkAllocateDescriptorSets(_ctxDevice, &alloc_info, &result_descr_set));
+//   } else {
+//     VK_CHECK(result);
+//   }
 
-  _readyPools.push_back(pool_to_use);
-  return result_descr_set;
-}
+//   _readyPools.push_back(pool_to_use);
+//   return Raii_VkDescriptorSet(result_descr_set, {_ctxDevice, pool_to_use});
+// }
 
 VkDescriptorPool DescriptorAllocator::get_pool() {
 
@@ -195,14 +195,14 @@ VkDescriptorPool DescriptorAllocator::create_pool() {
   std::vector<VkDescriptorPoolSize> pool_sizes;
   for (PoolSizeRatio ratio : _ratios)
     pool_sizes.push_back(VkDescriptorPoolSize{
-        .type = ratio.type,
+        .type = static_cast<VkDescriptorType>(ratio.type),
         .descriptorCount = static_cast<uint32_t>(ratio.ratio * _setPerPools),
     });
 
   VkDescriptorPoolCreateInfo pool_info{
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
       .pNext = nullptr,
-      .flags = {}, // defaulted
+      .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, // defaulted
       .maxSets = _setPerPools,
       .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
       .pPoolSizes = pool_sizes.data(),
@@ -211,4 +211,64 @@ VkDescriptorPool DescriptorAllocator::create_pool() {
   VkDescriptorPool new_pool;
   VK_CHECK(vkCreateDescriptorPool(_ctxDevice, &pool_info, nullptr, &new_pool));
   return new_pool;
+}
+
+// -- DescriptorWritter
+
+// Methods
+void DescriptorWriter::write_image(uint32_t binding, VkImageView view,
+                                   VkSampler sampler, VkImageLayout layout,
+                                   VkDescriptorType descriptor_type) {
+  VkDescriptorImageInfo &info = _img_infos.emplace_back(VkDescriptorImageInfo{
+      .sampler = sampler, .imageView = view, .imageLayout = layout});
+
+  _writes.emplace_back(VkWriteDescriptorSet{
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .pNext = nullptr,
+      .dstSet = VK_NULL_HANDLE, // Empty for now, will be set during write
+      .dstBinding = binding,
+      .dstArrayElement = 0,
+      .descriptorCount = 1,
+      .descriptorType = descriptor_type,
+      .pImageInfo = &info,
+      .pBufferInfo = {}, // no need for it, allocating an image not a buffer
+      .pTexelBufferView = {}, // same as pBufferInfo
+  });
+}
+void DescriptorWriter::write_buffer(uint32_t binding, VkBuffer buffer,
+                                    size_t size, size_t offset,
+                                    VkDescriptorType descriptor_type) {
+
+  VkDescriptorBufferInfo &info =
+      _buffer_infos.emplace_back(VkDescriptorBufferInfo{
+          .buffer = buffer,
+          .offset = offset,
+          .range = size,
+      });
+
+  _writes.emplace_back(VkWriteDescriptorSet{
+      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .pNext = nullptr,
+      .dstSet = VK_NULL_HANDLE, // Empty for now, will be set during write
+      .dstBinding = binding,
+      .dstArrayElement = 0,
+      .descriptorCount = 1,
+      .descriptorType = descriptor_type,
+      .pImageInfo = {}, // no need for it, allocating a buffer not an buffer
+      .pBufferInfo = &info,
+      .pTexelBufferView = {}, // same as pImageInfo
+  });
+}
+
+void DescriptorWriter::clear() {
+  _img_infos.clear();
+  _buffer_infos.clear();
+  _writes.clear();
+}
+void DescriptorWriter::update_set(VkDevice device, VkDescriptorSet set) {
+  for (VkWriteDescriptorSet &write : _writes)
+    write.dstSet = set;
+
+  vkUpdateDescriptorSets(device, static_cast<uint32_t>(_writes.size()),
+                         _writes.data(), 0, nullptr);
 }

@@ -1,12 +1,24 @@
 // image_display.slang
 
-uniform uint2 resolution;
+
+[[vk::binding(0, 0)]]
 RWTexture3D<float4> result;
+
+struct UniformData {
+    uint2 resolution;
+    float time;
+};
+
+[[vk::push_constant]]
+ConstantBuffer<UniformData> unis;
+
 
 [shader("compute")]
 [numthreads(16, 16, 1)]
 void main(uint3 threadId: SV_DispatchThreadID)
 {
+    printf("runed\n");
+
     uint3 texel_coord = threadId.xyz;
     uint3 size;
     uint levels;
