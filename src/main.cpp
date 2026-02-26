@@ -1,6 +1,5 @@
 #include "Camera.h"
 #include "ImageBuffer.h"
-#include "fmt/core.h"
 #include "glm/ext/vector_float3.hpp"
 #include "graphics/vulkan_context.h"
 #include "hittables/Hittable.h"
@@ -13,7 +12,7 @@
 #include "types.h"
 
 int main() {
-  fmt::println("Starting app !");
+  LOG(1,"Starting app !");
 
   VulkanContext::init("RtVk");
 
@@ -34,13 +33,13 @@ int main() {
     img_buff.write_on_disk("test.png", ImageFormat::PNG);
     img_buff.write_to_gpu(ctx);
 
-    LOG(1, "Running ray done !\n Stop");
+    LOG(1, "Running ray done !");
     VulkanContext::stop();
   });
 
   VulkanContext::cleanup();
 
-  fmt::println("Stopped !");
+  LOG(1,"Stopped !");
 
   return 0;
 }

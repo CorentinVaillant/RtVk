@@ -1,4 +1,5 @@
 #include "test.h"
+#include "graphics/Image.h"
 #include "graphics/PipelineDescriptor.h"
 #include "graphics/Shaders.h"
 #include "graphics/pipelines.h"
@@ -28,8 +29,7 @@ void test_descriptor_allocator(VulkanContext &ctx) {
   DescriptorSetLayout descr_set_layout =
       builder.build(ctx._device, ComputeShader);
 
-  [[maybe_unused]] auto descriptor =
-      descr_alloc.allocate(descr_set_layout);
+  [[maybe_unused]] auto descriptor = descr_alloc.allocate(descr_set_layout);
 
   LOGOK("descriptor_allocator");
 }
@@ -52,7 +52,7 @@ void test_compute_pipeline_build(VulkanContext &ctx) {
       .add_binding(0, StorageImage, ComputeShader)
       .set_push_cst(ComputeShader, 0, sizeof(PushCstTest));
 
-  ComputePipeline compute_pipeline(ctx, descr);
+  ComputePipeline compute_pipeline(ctx, descr, {16, 16, 1});
 
   DescriptorAllocator::PoolSizeRatio sizes_ratio[] = {
       {.type = StorageImage, .ratio = 3},
@@ -67,7 +67,20 @@ void test_compute_pipeline_build(VulkanContext &ctx) {
 
   Raii_VkDescriptorSet descriptor = descr_alloc.allocate(descr_set_layout);
 
-  ctx.immediate_submit([&](VkCommandBuffer cmd) { compute_pipeline.bind(cmd, *descriptor); });
+  PushCstTest push_cst{.resolution = {720, 720}, .time = 5.f};
+
+  Image dispatch_result(ctx, {720, 720,1}, RGBA, VK_IMAGE_USAGE_STORAGE_BIT);
+
+  DescriptorWriter writter;
+  dispatch_result.write(writter,0 ,compute_pipeline.get_sampler(),
+                        VK_IMAGE_LAYOUT_GENERAL, StorageImage);
+
+  writter.update_set(ctx._device, *descriptor);
+
+  ctx.immediate_submit([&](VkCommandBuffer cmd) {
+    dispatch_result.transition(cmd,VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    compute_pipeline.dispatch(cmd, *descriptor, push_cst);
+  });
 
   LOGOK("compute_pipeline_build");
 }

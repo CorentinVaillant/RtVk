@@ -10,7 +10,6 @@ class VulkanContext {
 public:
   using ImediatFunc = std::function<void(VkCommandBuffer cmd)>;
   using RunFunc = std::function<void(VulkanContext &context)>;
-  static VulkanContext *get();
 
   static void init(const char *app_name = nullptr);
   static int run(RunFunc run_func);

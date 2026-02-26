@@ -1,12 +1,14 @@
 #include "pipelines.h"
+#include "glm/ext/vector_uint3.hpp"
 // -- ComputePipeline --
 
 // -- Constructors --
 // public:
 ComputePipeline::ComputePipeline(VulkanContext &ctx,
                                  PipelineDescriptor &descriptor,
+                                 glm::uvec3 dispatch_groupe,
                                  VkPipelineCreateFlags flags /* = {} */)
-    : _deviceCtx(ctx._device) {
+    : _deviceCtx(ctx._device), _dispatchGroup(dispatch_groupe) {
 
   auto stages = descriptor.get_stages_infos();
   assert(stages.size() == 1);
@@ -38,6 +40,12 @@ ComputePipeline::~ComputePipeline() {
 }
 
 // -- Methods --
+
+void ComputePipeline::bind(VkCommandBuffer cmd, VkDescriptorSet descriptor) {
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
+  vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _layout, 0, 1,
+                          &descriptor, 0, nullptr);
+}
 
 // private:
 void ComputePipeline::init_sampler(PipelineDescriptor &descriptor) {

@@ -19,6 +19,7 @@ inline void test(VulkanContext &ctx) {
   test_pipeline_build(ctx);
 
   LOGOK("All test OK !");
+
 }
 
 #else

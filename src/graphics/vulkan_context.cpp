@@ -21,8 +21,6 @@ bool s_use_validation_layers = false;
 static VulkanContext static_context;
 bool static_is_init = false;
 
-VulkanContext *VulkanContext::get() { return &static_context; }
-
 void VulkanContext::init(const char *app_name /* = nullptr */) {
   static_context.init_context(app_name);
 }
@@ -38,7 +36,6 @@ void VulkanContext::cleanup() {
   assert(static_is_init);
   static_context.clean_context();
 }
-
 
 void VulkanContext::stop(int exit_code /*= 0*/) {
   assert(static_is_init);
@@ -160,8 +157,8 @@ void VulkanContext::init_vulkan(const char *app_name) {
            selector_ret.error().message());
 
   _physicalDevice = selector_ret.value().physical_device;
-  LOG(2, "physical device init.\n => Loaded physical device :{}",
-      selector_ret.value().name);
+  LOG(2, "physical device init.");
+  LOG(2, "   => Loaded physical device :{}", selector_ret.value().name);
 
   // init device
   vkb::DeviceBuilder device_builder{selector_ret.value()};

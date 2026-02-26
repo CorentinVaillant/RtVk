@@ -47,7 +47,8 @@ enum LogLvl {
 #define LOG(level, ...)                                                        \
   do {                                                                         \
     if (NVERBOSE >= level) {                                                   \
-      fmt::print("[log {}::{}] ", __func__, __LINE__);                         \
+      fmt::print("[{}LOG {}] {}::{} ", ansi_code::BBLU, ansi_code::reset,      \
+                 __func__, __LINE__);                                          \
       fmt::println(__VA_ARGS__);                                               \
     }                                                                          \
   } while (0)
@@ -55,14 +56,14 @@ enum LogLvl {
 
 #define LOGOK(...)                                                             \
   do {                                                                         \
-    fmt::print("[{} OK {}] {}::{} ", ansi_code::GRN, ansi_code::reset,         \
+    fmt::print("[{}OK  {}] {}::{} ", ansi_code::BGRN, ansi_code::reset,        \
                __func__, __LINE__);                                            \
     fmt::println(__VA_ARGS__);                                                 \
   } while (0)
 
 #define LOGERR(...)                                                            \
   {                                                                            \
-    fmt::print("[{}ERR {}] {}::{} ", ansi_code::RED, ansi_code::reset,         \
+    fmt::print("[{}ERR {}] {}::{} ", ansi_code::BRED, ansi_code::reset,        \
                __func__, __LINE__);                                            \
     fmt::println(__VA_ARGS__);                                                 \
   }
@@ -71,8 +72,8 @@ enum LogLvl {
   do {                                                                         \
     VkResult err = x;                                                          \
     if (err) {                                                                 \
-      LOGERR("[LOG{}::{} ({})] Detected Vulkan error: {}", __func__, __LINE__, \
-             #x, string_VkResult(err));                                        \
+      LOGERR("Detected Vulkan error: \"{}\" -> {} ", #x,                       \
+             string_VkResult(err));                                            \
       throw std::runtime_error("VkError");                                     \
     }                                                                          \
   } while (0)

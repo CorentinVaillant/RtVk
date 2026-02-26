@@ -53,6 +53,12 @@ public:
       VkImageLayout current_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       VkImageLayout next_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
+  void write(DescriptorWriter &writter, uint32_t binding, VkSampler sampler,
+             VkImageLayout layout, DescriptorType descr_type) {
+    writter.write_image(binding, _view, sampler, layout,
+                        static_cast<VkDescriptorType>(descr_type));
+  }
+
 private:
   // -- Methods --
   VkImageCreateInfo create_image_create_info(VkImageUsageFlags usage,
@@ -67,4 +73,6 @@ private:
   ImgFormat _format;
 
   VkDevice _device;
+
+  // friends
 };
