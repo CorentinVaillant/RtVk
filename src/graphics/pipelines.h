@@ -19,19 +19,21 @@ public:
   ~ComputePipeline();
 
   // -- Getters --
-  VkSampler get_sampler(){return _sampler;}
+  VkSampler get_sampler() { return _sampler; }
 
   // -- Methods --
 
   template <typename PushCst>
     requires std::copy_constructible<PushCst>
-  void dispatch(VkCommandBuffer cmd, VkDescriptorSet descriptor, PushCst push_cst) {
+  void dispatch(VkCommandBuffer cmd, VkDescriptorSet descriptor,
+                PushCst push_cst, glm::uvec3 groups) {
     bind(cmd, descriptor);
 
     vkCmdPushConstants(cmd, _layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
                        sizeof(PushCst), &push_cst);
 
-    vkCmdDispatch(cmd, _dispatchGroup.x, _dispatchGroup.y, _dispatchGroup.z);
+    vkCmdDispatch(cmd, groups.x / _dispatchGroup.x, groups.y / _dispatchGroup.y,
+                  groups.z/_dispatchGroup.z);
   }
 
 private:

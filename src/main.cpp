@@ -30,8 +30,13 @@ int main() {
 
     renderer.render(scene);
     auto &img_buff = renderer.get_img_buff();
-    img_buff.write_on_disk("test.png", ImageFormat::PNG);
-    img_buff.write_to_gpu(ctx);
+    // img_buff.write_on_disk("test.png", ImageFormat::PNG);
+    Image result = img_buff.write_to_gpu(ctx);
+
+    ImageBuffer buff(img_buff.get_width(), img_buff.get_height(), img_buff.get_format());
+    buff.read_from_gpu(ctx, result);
+    buff.write_on_disk("test.png", ImageFormat::PNG);
+
 
     LOG(1, "Running ray done !");
     VulkanContext::stop();

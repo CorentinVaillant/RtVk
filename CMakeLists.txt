@@ -45,17 +45,16 @@ endforeach(GLSL)
 find_program(SLANG_VALIDATOR slangc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
 
 file(GLOB_RECURSE SLANG_SOURCE_FILE
-  "${PROJECT_SOURCE_DIR}/shaders/*.slang"
+  "${PROJECT_SOURCE_DIR}/shaders/src/*.slang"
 )
-
-# slangc ./image_display.slang  -target spirv -o test.out -entry main
+file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/bin/shaders)
 foreach(SLANG ${SLANG_SOURCE_FILE})
   message(STATUS "Adding shader to build : " ${SLANG})
   get_filename_component(FILE_NAME ${SLANG} NAME)
   set(SPIRV "${PROJECT_SOURCE_DIR}/bin/shaders/${FILE_NAME}.spv")
   add_custom_command(
     OUTPUT ${SPIRV}
-    COMMAND ${SLANG_VALIDATOR} -target spirv -entry main -o ${SPIRV} -- ${SLANG}
+    COMMAND ${SLANG_VALIDATOR} -target spirv -o ${SPIRV} -- ${SLANG}
     DEPENDS ${SLANG})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(SLANG)

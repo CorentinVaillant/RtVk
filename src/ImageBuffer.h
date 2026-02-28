@@ -45,6 +45,8 @@ public:
 
   Image write_to_gpu(VulkanContext &ctx) const;
 
+  void read_from_gpu(VulkanContext &ctx, Image& image);
+
   // -- Getters
   size_t get_width() const { return _width; }
   size_t get_height() const { return _heigth; }

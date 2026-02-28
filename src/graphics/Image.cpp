@@ -7,8 +7,9 @@
 // -- Contructors --
 
 Image::Image(VulkanContext &ctx, VkExtent3D size, ImgFormat format,
-             VkImageUsageFlags usage, bool mipmapped /* = false */)
-    : _extent(size), _format(format), _device(ctx._device) {
+             VkImageUsageFlags usage, ImgLayout layout,
+             bool mipmapped /* = false */)
+    : _extent(size), _format(format), _layout(layout), _device(ctx._device) {
 
   VkImageCreateInfo img_create_info =
       create_image_create_info(usage, mipmapped);
@@ -26,22 +27,27 @@ Image::Image(VulkanContext &ctx, VkExtent3D size, ImgFormat format,
       create_image_view_create_info(img_create_info.mipLevels);
   VK_CHECK(
       vkCreateImageView(ctx._device, &imgview_create_info, nullptr, &_view));
+
+  ctx.immediate_submit([this](VkCommandBuffer cmd) {
+    transition_image(cmd, _vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
+                     static_cast<VkImageLayout>(_layout));
+  });
 }
 
 Image::Image(VulkanContext &ctx, const unsigned char *data, VkExtent3D size,
-             ImgFormat format, VkImageUsageFlags usage,
+             ImgFormat format, VkImageUsageFlags usage, ImgLayout layout,
              bool mipmapped /* = false */)
     : Image(ctx, size, format,
             usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-            mipmapped) {
+            layout, mipmapped) {
 
   size_t data_size =
       size.depth * size.width * size.height * format_size(format);
   Buffer<uint8_t> upload_buffer(ctx, data_size,
                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                 VMA_MEMORY_USAGE_CPU_TO_GPU);
-  upload_buffer.write_from_cpu(data_size, data);
+  upload_buffer.write(data_size, data);
 
   ctx.immediate_submit([&upload_buffer, this](VkCommandBuffer cmd) {
     transition_image(cmd, _vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
@@ -68,16 +74,18 @@ Image::Image(VulkanContext &ctx, const unsigned char *data, VkExtent3D size,
                            &copy_region);
 
     transition_image(cmd, _vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                     static_cast<VkImageLayout>(_layout));
   });
 }
 // -- Methods --
 
 // -- public
 
-void Image::transition(VkCommandBuffer cmd, VkImageLayout current_layout,
-                       VkImageLayout next_layout) {
-  transition_image(cmd, _vkImage, current_layout, next_layout);
+void Image::transition(VkCommandBuffer cmd, ImgLayout new_layout) {
+  transition_image(cmd, _vkImage, static_cast<VkImageLayout>(_layout),
+                   static_cast<VkImageLayout>(new_layout));
+
+  _layout = new_layout;
 }
 
 // -- private

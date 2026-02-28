@@ -16,6 +16,15 @@ enum ImgFormat {
   DEPTH = VK_FORMAT_D32_SFLOAT,
 };
 
+enum ImgLayout {
+  Undefined = VK_IMAGE_LAYOUT_UNDEFINED,
+  General = VK_IMAGE_LAYOUT_GENERAL,
+  ColorAttachmentOpt = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+  TransferSrcOpt = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+  TransferDstOpt = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+  // ...
+};
+
 inline size_t format_size(ImgFormat format) {
   switch (format) {
   case RGBA:  /*  = VK_FORMAT_R8G8B8A8_UNORM */
@@ -33,10 +42,11 @@ class Image {
 public:
   Image() = delete;
   Image(VulkanContext &ctx, VkExtent3D size, ImgFormat format,
-        VkImageUsageFlags mem_usage, bool mipmapped = false);
+        VkImageUsageFlags mem_usage, ImgLayout layout, bool mipmapped = false);
 
   Image(VulkanContext &ctx, const unsigned char *data, VkExtent3D size,
-        ImgFormat format, VkImageUsageFlags mem_usage, bool mipmapped = false);
+        ImgFormat format, VkImageUsageFlags mem_usage, ImgLayout layout,
+        bool mipmapped = false);
 
   NO_COPY(Image);
 
@@ -47,15 +57,17 @@ public:
     vkDestroyImage(_device, _vkImage, nullptr);
   }
 
+  // -- Getters --
+  VkExtent3D get_size() const { return _extent; }
+  ImgFormat get_format() const { return _format; }
+  ImgLayout get_layout() const { return _layout; }
+
   // -- Methods --
-  void transition(
-      VkCommandBuffer cmd,
-      VkImageLayout current_layout = VK_IMAGE_LAYOUT_UNDEFINED,
-      VkImageLayout next_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  void transition(VkCommandBuffer cmd, ImgLayout next_layout);
 
   void write(DescriptorWriter &writter, uint32_t binding, VkSampler sampler,
-             VkImageLayout layout, DescriptorType descr_type) {
-    writter.write_image(binding, _view, sampler, layout,
+            DescriptorType descr_type) {
+    writter.write_image(binding, _view, sampler, static_cast<VkImageLayout>(_layout),
                         static_cast<VkDescriptorType>(descr_type));
   }
 
@@ -71,8 +83,10 @@ private:
   VmaAllocation _allocation;
   VkExtent3D _extent;
   ImgFormat _format;
+  ImgLayout _layout;
 
   VkDevice _device;
 
   // friends
+  friend class ImageBuffer;
 };

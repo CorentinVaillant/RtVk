@@ -1,4 +1,5 @@
 #include "test.h"
+#include "ImageBuffer.h"
 #include "graphics/Image.h"
 #include "graphics/PipelineDescriptor.h"
 #include "graphics/Shaders.h"
@@ -6,13 +7,19 @@
 #include "graphics/raii_graphic.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"
+#include <cassert>
+#include <stdexcept>
+
 #ifdef NTEST
 #include "graphics/utils.h"
 #include <vulkan/vulkan_core.h>
 
 struct PushCstTest {
-  glm::vec2 resolution;
-  float time;
+  glm::vec2 start = glm::vec2(0);
+  float zoom = 3;
+  uint spp = 20;
+  uint power = 2;
+  float palette_offset = 0;
 };
 
 void test_descriptor_allocator(VulkanContext &ctx) {
@@ -67,20 +74,29 @@ void test_compute_pipeline_build(VulkanContext &ctx) {
 
   Raii_VkDescriptorSet descriptor = descr_alloc.allocate(descr_set_layout);
 
-  PushCstTest push_cst{.resolution = {720, 720}, .time = 5.f};
+  constexpr size_t IMG_SIZE = 1000;
 
-  Image dispatch_result(ctx, {720, 720,1}, RGBA, VK_IMAGE_USAGE_STORAGE_BIT);
+  PushCstTest push_cst{};
+
+  Image dispatch_result(
+      ctx, {IMG_SIZE, IMG_SIZE, 1}, RGBA,
+      VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, General);
 
   DescriptorWriter writter;
-  dispatch_result.write(writter,0 ,compute_pipeline.get_sampler(),
-                        VK_IMAGE_LAYOUT_GENERAL, StorageImage);
+  dispatch_result.write(writter, 0, compute_pipeline.get_sampler(),
+                        StorageImage);
 
   writter.update_set(ctx._device, *descriptor);
 
   ctx.immediate_submit([&](VkCommandBuffer cmd) {
-    dispatch_result.transition(cmd,VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-    compute_pipeline.dispatch(cmd, *descriptor, push_cst);
+    compute_pipeline.dispatch(cmd, *descriptor, push_cst,
+                              {IMG_SIZE, IMG_SIZE, 1});
   });
+
+  ImageBuffer img_buff(IMG_SIZE, IMG_SIZE, RGBA);
+  img_buff.read_from_gpu(ctx, dispatch_result);
+
+  img_buff.write_on_disk("mandelbrot.png", PNG);
 
   LOGOK("compute_pipeline_build");
 }

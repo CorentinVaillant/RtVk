@@ -46,9 +46,13 @@ public:
   NO_COPY(Buffer);
 
   // -- Methods
-  void write_from_cpu(size_t count,const T *data) {
+  void write(size_t count, const T *data) {
     memcpy(_allocInfo.pMappedData, reinterpret_cast<const uint8_t *>(data),
            count * sizeof(T));
+  }
+
+  void read(size_t count, T *dst) {
+    memcpy(dst, _allocInfo.pMappedData, count * sizeof(T));
   }
 
   // -- Attributs
