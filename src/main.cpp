@@ -1,7 +1,6 @@
 #include "Camera.h"
 #include "ImageBuffer.h"
 #include "SDL3/SDL_events.h"
-#include "SDL3/SDL_oldnames.h"
 #include "SDL3/SDL_scancode.h"
 #include "glm/ext/vector_float3.hpp"
 #include "graphics/vulkan_context.h"
@@ -11,7 +10,7 @@
 #include <cassert>
 
 #include "graphics/vulkan_context.h"
-#include "Renderer.h"
+#include "renderer/CPURenderer.h"
 #include "test.h"
 #include "types.h"
 
@@ -21,10 +20,11 @@ int main() {
   VulkanContext::init("RtVk");
 
   VulkanContext::set_event_callbacks([](VulkanContext &ctx, SDL_Event &event) {
-    if(event.type == SDL_EVENT_QUIT)
+    if (event.type == SDL_EVENT_QUIT)
       VulkanContext::stop();
 
-    if(event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_ESCAPE)
+    if (event.type == SDL_EVENT_KEY_DOWN &&
+        event.key.scancode == SDL_SCANCODE_ESCAPE)
       VulkanContext::stop();
   });
 
@@ -32,7 +32,7 @@ int main() {
     static bool runned_once = false;
     if (runned_once)
       return;
-    // test(ctx);
+    test(ctx);
 
     LOG(1, "Running ray tracer...");
     std::vector<Sphere> objects = {Sphere{glm::vec3(-5.05, 0, 0), 5.},
@@ -40,12 +40,13 @@ int main() {
 
     Scene scene{Camera(), std::make_unique<HittableVector>(std::move(objects))};
 
-    SimpleRenderer renderer(500, 500);
+    std::unique_ptr<Renderer> renderer =std::make_unique<SimpleCPURenderer>(ctx.get_window_size().width,
+                                               ctx.get_window_size().height);
 
-    renderer.render(scene);
+    renderer->render(scene);
     LOG(1, "Running ray done !");
     LOG(1, "Drawing the image...");
-    auto &img_buff = renderer.get_img_buff();
+    auto &img_buff = renderer->get_img_buff();
     img_buff.write_on_disk("test.png", ImageFormat::PNG);
     Image result = img_buff.write_to_gpu(ctx);
 

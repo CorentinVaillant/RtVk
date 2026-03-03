@@ -31,6 +31,9 @@ public:
   void immediate_submit(ImediatFunc &&func);
   void draw(Image& img);
 
+  // -- getters
+  VkExtent2D get_window_size() const{return _windowExtent;}
+
 private:
   // -- Methods
   void init_context(const char *app_name);
