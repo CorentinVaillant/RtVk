@@ -1,12 +1,16 @@
 #include "vulkan_context.h"
 #include "SDL3/SDL.h"
+#include "SDL3/SDL_events.h"
 #include "SDL3/SDL_video.h"
 #include "SDL3/SDL_vulkan.h"
 #include "graphics/requiered_vk_features.h"
+#include "graphics/utils.h"
 #include "types.h"
 #include <VkBootstrap.h>
 #include <cassert>
 #include <vulkan/vulkan_core.h>
+
+#include "Image.h"
 
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
@@ -29,9 +33,19 @@ int VulkanContext::run(RunFunc run_func) {
   static_context._shouldRun = true;
   while (static_context._shouldRun) {
     run_func(static_context);
+
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+      static_context._eventCallback(static_context, e);
+    }
   }
   return static_context._stopReturnCode;
 }
+void VulkanContext::set_event_callbacks(EventCallbackFunc callbacks) {
+  assert(static_is_init);
+  static_context._eventCallback = callbacks;
+}
+
 void VulkanContext::cleanup() {
   assert(static_is_init);
   static_context.clean_context();
@@ -86,8 +100,107 @@ void VulkanContext::immediate_submit(ImediatFunc &&func) {
   VK_CHECK(vkWaitForFences(_device, 1, &_immediateFence, VK_TRUE, 999'999'999));
 }
 
+void VulkanContext::draw(Image &img) {
+  VK_CHECK(vkWaitForFences(_device, 1, &_inFlightFence, VK_TRUE, UINT64_MAX));
+  VK_CHECK(vkResetFences(_device, 1, &_inFlightFence));
+
+  uint32_t image_index;
+  VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, UINT64_MAX,
+                                 _imageAvailable, VK_NULL_HANDLE,
+                                 &image_index));
+
+  VkCommandBuffer &cmd = _immediateCmd; // ? maybe make it's own cmd
+
+  VK_CHECK(vkResetCommandBuffer(cmd, 0));
+
+  VkCommandBufferBeginInfo begin_info{
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      .pNext = nullptr,
+      .flags = {},
+      .pInheritanceInfo = nullptr,
+  };
+
+  VK_CHECK(vkBeginCommandBuffer(cmd, &begin_info));
+
+  // Copy the image to the swapchain one
+
+  transition_image(cmd, _swapchainImages[image_index],
+                   VK_IMAGE_LAYOUT_UNDEFINED,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+  ImgLayout img_layout = img.get_layout();
+
+  img.transition(cmd, TransferSrcOpt);
+
+  VkExtent3D img_extent = img.get_size();
+  VkImageCopy copy_region{};
+  copy_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  copy_region.srcSubresource.mipLevel = 0;
+  copy_region.srcSubresource.layerCount = 1;
+  copy_region.srcSubresource.baseArrayLayer = 0;
+  copy_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  copy_region.dstSubresource.mipLevel = 0;
+  copy_region.dstSubresource.layerCount = 1;
+  copy_region.dstSubresource.baseArrayLayer = 0;
+  copy_region.extent.width = std::min(img_extent.width, _swapchainExtent.width);
+  copy_region.extent.height =
+      std::min(img_extent.height, _swapchainExtent.height);
+  copy_region.extent.depth = 1;
+
+  vkCmdCopyImage(cmd, img._vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                 _swapchainImages[image_index],
+                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+
+  transition_image(cmd, _swapchainImages[image_index],
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+  img.transition(cmd, img_layout);
+
+  VK_CHECK(vkEndCommandBuffer(cmd));
+
+  // Submit
+
+  const VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+  VkSubmitInfo sumbit_info{
+      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .pNext = nullptr,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = &_imageAvailable,
+      .pWaitDstStageMask = &wait_stage,
+      .commandBufferCount = 1,
+      .pCommandBuffers = &cmd,
+      .signalSemaphoreCount = 1,
+      .pSignalSemaphores = &_renderFinished,
+  };
+
+  VK_CHECK(vkQueueSubmit(_graphicQueue, 1, &sumbit_info, _inFlightFence));
+
+  // Present
+
+  VkResult swapchain_result = VK_SUCCESS;
+
+  VkPresentInfoKHR present_info = {
+      .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+      .pNext = nullptr,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = &_renderFinished,
+      .swapchainCount = 1,
+      .pSwapchains = &_swapchain,
+      .pImageIndices = &image_index,
+      .pResults = &swapchain_result,
+  };
+
+  VK_CHECK(vkQueuePresentKHR(_graphicQueue, &present_info));
+
+  VK_CHECK(swapchain_result);
+
+  VK_CHECK(vkWaitForFences(_device, 1, &_inFlightFence, VK_TRUE, UINT64_MAX));
+}
+
 // -- Private impl --
-void VulkanContext::init_context(const char *app_name /* = nullptr */) {
+void VulkanContext::init_context(const char *app_name) {
   LOG(1, "Initialasing the context...");
   LOG(2, "Use of validation layers is set to {}", s_use_validation_layers);
   assert(static_is_init == false);
@@ -98,7 +211,7 @@ void VulkanContext::init_context(const char *app_name /* = nullptr */) {
   init_sdl(use_app_name);
   init_vulkan(use_app_name);
   init_commands();
-  // init_compute_pipeline();
+  create_swapchain();
 
   // ...
 
@@ -107,7 +220,11 @@ void VulkanContext::init_context(const char *app_name /* = nullptr */) {
   _isInit = true;
 }
 
-void VulkanContext::clean_context() { _mainDelQueue.flush(); }
+void VulkanContext::clean_context() {
+  vkDeviceWaitIdle(_device);
+
+  _mainDelQueue.flush();
+}
 
 // -- Init functions --
 void VulkanContext::init_sdl(const char *app_name) {
@@ -243,4 +360,63 @@ void VulkanContext::init_commands() {
 
   _mainDelQueue.push_function(
       [this]() { vkDestroyCommandPool(_device, _immediateCmdPool, nullptr); });
+}
+
+void VulkanContext::create_swapchain() {
+  vkb::SwapchainBuilder vkb_builder(_physicalDevice, _device, _surface);
+
+  auto vkb_swapchain_result =
+      vkb_builder
+          .set_desired_format(VkSurfaceFormatKHR{
+              .format = _swapchainFormat,
+              .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
+          .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+          .set_desired_extent(_windowExtent.width, _windowExtent.height)
+          .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+          .build();
+  if (!vkb_swapchain_result)
+    LOGERR("Could not build the swapchain : {}",
+           vkb_swapchain_result.error().message());
+
+  vkb::Swapchain vkb_swapchain = vkb_swapchain_result.value();
+
+  _swapchainExtent = vkb_swapchain.extent;
+  _swapchain = vkb_swapchain.swapchain;
+
+  auto swapchain_img_result = vkb_swapchain.get_images();
+  if (!swapchain_img_result)
+    LOGERR("Could not get the swapchain's images : {}",
+           swapchain_img_result.error().message());
+  _swapchainImages = swapchain_img_result.value();
+
+  auto swapchain_imgviews_result = vkb_swapchain.get_image_views();
+  if (!swapchain_imgviews_result)
+    LOGERR("Could not get the swapchain's image views : {}",
+           swapchain_imgviews_result.error().message());
+  _swapchainImageViews = swapchain_imgviews_result.value();
+
+  VkSemaphoreCreateInfo semInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+  vkCreateSemaphore(_device, &semInfo, nullptr, &_imageAvailable);
+  vkCreateSemaphore(_device, &semInfo, nullptr, &_renderFinished);
+
+  VkFenceCreateInfo fenceInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+  fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  vkCreateFence(_device, &fenceInfo, nullptr, &_inFlightFence);
+
+  _mainDelQueue.push_function([&, this]() {
+    vkWaitForFences(_device, 1, &_inFlightFence, VK_TRUE, 1'000'000);
+    vkDestroyFence(_device, _inFlightFence, nullptr);
+
+    vkDestroySemaphore(_device, _imageAvailable, nullptr);
+    vkDestroySemaphore(_device, _renderFinished, nullptr);
+
+    destroy_swapchain();
+  });
+}
+
+void VulkanContext::destroy_swapchain() {
+  for (VkImageView img_view : _swapchainImageViews)
+    vkDestroyImageView(_device, img_view, nullptr);
+
+  vkDestroySwapchainKHR(_device, _swapchain, nullptr);
 }

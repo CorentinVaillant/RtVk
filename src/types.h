@@ -61,6 +61,14 @@ enum LogLvl {
     fmt::println(__VA_ARGS__);                                                 \
   } while (0)
 
+#define LOGWARN(...)                                                           \
+  do {                                                                         \
+    if (NVERBOSE >= LogLvl::WARNING)                                           \
+      fmt::print("[{}WARN {}] {}::{} ", ansi_code::BYEL, ansi_code::reset,     \
+                 __func__, __LINE__);                                          \
+    fmt::println(__VA_ARGS__);                                                 \
+  } while (0)
+
 #define LOGERR(...)                                                            \
   {                                                                            \
     fmt::print("[{}ERR {}] {}::{} ", ansi_code::BRED, ansi_code::reset,        \

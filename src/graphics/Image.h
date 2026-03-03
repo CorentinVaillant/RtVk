@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <vulkan/vulkan_core.h>
 
+class VulkanContext;
+
 enum ImgFormat {
   // Color format
   RGBA = VK_FORMAT_R8G8B8A8_UNORM,
@@ -66,8 +68,9 @@ public:
   void transition(VkCommandBuffer cmd, ImgLayout next_layout);
 
   void write(DescriptorWriter &writter, uint32_t binding, VkSampler sampler,
-            DescriptorType descr_type) {
-    writter.write_image(binding, _view, sampler, static_cast<VkImageLayout>(_layout),
+             DescriptorType descr_type) {
+    writter.write_image(binding, _view, sampler,
+                        static_cast<VkImageLayout>(_layout),
                         static_cast<VkDescriptorType>(descr_type));
   }
 
@@ -78,6 +81,7 @@ private:
   VkImageViewCreateInfo create_image_view_create_info(uint32_t mip_level_count);
 
   // -- Atributs --
+public:
   VkImage _vkImage;
   VkImageView _view;
   VmaAllocation _allocation;
@@ -85,8 +89,6 @@ private:
   ImgFormat _format;
   ImgLayout _layout;
 
+private:
   VkDevice _device;
-
-  // friends
-  friend class ImageBuffer;
 };

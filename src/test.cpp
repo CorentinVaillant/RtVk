@@ -8,7 +8,6 @@
 #include "graphics/vulkan_context.h"
 #include "types.h"
 #include <cassert>
-#include <stdexcept>
 
 #ifdef NTEST
 #include "graphics/utils.h"

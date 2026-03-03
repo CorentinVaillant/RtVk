@@ -5,6 +5,8 @@
 #include "types.h"
 #include <vulkan/vulkan_core.h>
 
+class VulkanContext;
+
 // -- Utils functions
 
 VkImageSubresourceRange image_subresource_range(VkImageAspectFlags aspect_mask);
