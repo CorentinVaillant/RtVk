@@ -11,6 +11,7 @@
 
 #include "graphics/vulkan_context.h"
 #include "renderer/CPURenderer.h"
+#include "renderer/GPURenderer.h"
 #include "test.h"
 #include "types.h"
 
@@ -38,7 +39,7 @@ int main() {
     std::vector<Sphere> objects = {Sphere{glm::vec3(-5.05, 0, 0), 5.},
                                    Sphere{glm::vec3(5.05, 0, 0), 5.}};
 
-    Scene scene{Camera(), std::make_unique<HittableVector>(std::move(objects))};
+    Scene scene{Camera(), std::make_unique<HittableVector<Sphere>>(std::move(objects))};
 
     std::unique_ptr<Renderer> renderer =std::make_unique<SimpleCPURenderer>(ctx.get_window_size().width,
                                                ctx.get_window_size().height);

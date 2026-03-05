@@ -1,7 +1,7 @@
 #include "graphics/utils.h"
 
 #include "types.h"
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 // -- Utils functions --
 
@@ -62,24 +62,26 @@ void transition_image(VkCommandBuffer cmd, VkImage image,
 // -- DescriptorLayoutBuilder
 
 DescriptorLayoutBuilder &
-DescriptorLayoutBuilder::add_binding(uint32_t binding, DescriptorType type) {
+DescriptorLayoutBuilder::add_binding(uint32_t binding, DescriptorType type,
+                                     ShaderStages stages) {
   VkDescriptorSetLayoutBinding new_bind = {
       .binding = binding,
       .descriptorType = static_cast<VkDescriptorType>(type),
       .descriptorCount = 1,
-      .stageFlags = {},              // Will be init when building
-      .pImmutableSamplers = nullptr, // defaulted
+      .stageFlags = stages._vkShaderStageFlags, // can be init when building
+      .pImmutableSamplers = nullptr,            // defaulted
   };
 
   _bindings.push_back(new_bind);
   return *this;
 }
 
+[[nodiscard]]
 DescriptorSetLayout DescriptorLayoutBuilder::build(
-    VkDevice device, ShaderStages stages, void *pNext /* = nullptr */,
+    VkDevice device, ShaderStages global_stages, void *pNext /* = nullptr */,
     VkDescriptorSetLayoutCreateFlags flags /* = 0 */) {
   for (auto &b : _bindings)
-    b.stageFlags |= stages._vkShaderStageFlags;
+    b.stageFlags |= global_stages._vkShaderStageFlags;
 
   VkDescriptorSetLayoutCreateInfo infos = {
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -104,7 +106,7 @@ DescriptorSetLayout::DescriptorSetLayout(VkDevice device,
 // -- DescriptorAllocator
 
 DescriptorAllocator::DescriptorAllocator(VulkanContext &ctx, uint32_t init_size,
-                                         std::span<PoolSizeRatio> sizes)
+                                         std::span<const PoolSizeRatio> sizes)
     : _ctxDevice(ctx._device),
       _ratios(sizes.data(), sizes.data() + sizes.size()),
       _setPerPools(init_size) {
@@ -165,7 +167,8 @@ void DescriptorAllocator::clear() {
 //     alloc_info.descriptorPool = pool_to_use;
 
 //     VK_CHECK(
-//         vkAllocateDescriptorSets(_ctxDevice, &alloc_info, &result_descr_set));
+//         vkAllocateDescriptorSets(_ctxDevice, &alloc_info,
+//         &result_descr_set));
 //   } else {
 //     VK_CHECK(result);
 //   }

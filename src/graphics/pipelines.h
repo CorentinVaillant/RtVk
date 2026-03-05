@@ -4,7 +4,7 @@
 #include "graphics/vulkan_context.h"
 #include "types.h"
 #include <concepts>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 // -- ComputePipeline --
 

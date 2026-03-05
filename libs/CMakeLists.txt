@@ -1,6 +1,7 @@
 find_package(Vulkan REQUIRED)
 
 add_library(glm INTERFACE)
+add_library(volk INTERFACE)
 
 add_library(stb_image INTERFACE)
 add_library(stb_image_write INTERFACE)
@@ -12,6 +13,7 @@ add_subdirectory(vkbootstrap)
 add_subdirectory(VulkanMemoryAllocator)
 
 target_include_directories(glm INTERFACE glm)
+target_include_directories(volk INTERFACE volk)
 
 #add_library(sdl2 INTERFACE)
 

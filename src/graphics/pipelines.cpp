@@ -26,7 +26,7 @@ ComputePipeline::ComputePipeline(VulkanContext &ctx,
       .basePipelineHandle = {}, // No inheritance
       .basePipelineIndex = {},
   };
-
+  
   VK_CHECK(vkCreateComputePipelines(_deviceCtx, VK_NULL_HANDLE, 1, &create_info,
                                     nullptr, &_pipeline));
 }

@@ -2,6 +2,7 @@
 
 #include "types.h"
 #include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 template <typename T, auto DestroyFun> class DestructorFromDevice {
 public:

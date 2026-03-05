@@ -8,14 +8,14 @@
 #include <ios>
 #include <span>
 #include <vector>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 class Shader {
 public:
-  Shader(VulkanContext &ctx, std::span<uint32_t> code_span)
+  Shader(VulkanContext &ctx, std::span<const uint32_t> code_span)
       : _device(ctx._device) {
 
-    uint32_t *code = code_span.data();
+    const uint32_t *code = code_span.data();
     size_t code_size = code_span.size_bytes();
 
     VkShaderModuleCreateInfo create_info = {

@@ -6,12 +6,18 @@
 #include "graphics/pipelines.h"
 #include "graphics/raii_graphic.h"
 #include "graphics/vulkan_context.h"
+#include "hittables/Hittable.h"
+#include "hittables/Sphere.h"
 #include "types.h"
 #include <cassert>
+#include <utility>
+#include <vector>
+
+#include "shaders/mandelbrot.slang.h"
 
 #ifdef NTEST
 #include "graphics/utils.h"
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 struct PushCstTest {
   glm::vec2 start = glm::vec2(0);
@@ -45,13 +51,14 @@ void test_pipeline_build(VulkanContext &ctx) {
 }
 
 void test_shader_loading(VulkanContext &ctx) {
-  Shader loaded_shader = Shader(ctx, "./shaders/mandelbrot.slang.spv");
+
+  Shader loaded_shader = Shader(ctx, MANDELBROT_SPIRV);
   LOGOK("shader_loading");
 }
 
 void test_compute_pipeline_build(VulkanContext &ctx) {
 
-  Shader loaded_shader = Shader(ctx, "./shaders/mandelbrot.slang.spv");
+  Shader loaded_shader = Shader(ctx, MANDELBROT_SPIRV);
 
   PipelineDescriptor descr;
   descr.add_shader_stage(ComputeShader, loaded_shader)
@@ -98,6 +105,20 @@ void test_compute_pipeline_build(VulkanContext &ctx) {
   img_buff.write_on_disk("mandelbrot.png", PNG);
 
   LOGOK("compute_pipeline_build");
+}
+
+void test_acceleration_struct(VulkanContext &ctx) {
+  std::vector<Sphere> vec_sphere;
+  for (uint i = 0; i < 20; i++) {
+    vec_sphere.push_back(Sphere(glm::vec3(i * i, 0, 0), i + 1));
+  }
+
+  HittableVector vec(std::move(vec_sphere));
+
+  [[maybe_unused]]
+  auto tlas = vec.get_gpu_struct(ctx);
+
+  LOGOK("acceleration_struct");
 }
 
 #endif

@@ -19,49 +19,56 @@ add_subdirectory(src)
 
 message("Compiler : ${CMAKE_CXX_COMPILER}")
 
-
-# GLSL shaders compilation
-find_program(GLSL_VALIDATOR glslangValidator HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
-
-file(GLOB_RECURSE GLSL_SOURCE_FILES
-  "${PROJECT_SOURCE_DIR}/shaders/*.frag"
-  "${PROJECT_SOURCE_DIR}/shaders/*.vert"
-  "${PROJECT_SOURCE_DIR}/shaders/*.comp"
-)
-
-foreach(GLSL ${GLSL_SOURCE_FILES})
-  message(STATUS "Building shader : " ${GLSL})
-  get_filename_component(FILE_NAME ${GLSL} NAME)
-  set(SPIRV "${PROJECT_SOURCE_DIR}/bin/shaders/${FILE_NAME}.spv")
-  message(STATUS ${GLSL})
-  add_custom_command(
-    OUTPUT ${SPIRV}
-    COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
-    DEPENDS ${GLSL})
-  list(APPEND SPIRV_BINARY_FILES ${SPIRV})
-endforeach(GLSL)
-
 # SLANG shader compilation
-find_program(SLANG_VALIDATOR slangc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
+set(SHADER_HEADER_DIR ${PROJECT_SOURCE_DIR}/build/src/shaders)
+file(MAKE_DIRECTORY ${SHADER_HEADER_DIR})   # ← fix ici
+
+find_program(SLANG_VALIDATOR slangc
+    HINTS /usr/bin /usr/local/bin
+          $ENV{VULKAN_SDK}/Bin/
+          $ENV{VULKAN_SDK}/Bin32/
+)
 
 file(GLOB_RECURSE SLANG_SOURCE_FILE
-  "${PROJECT_SOURCE_DIR}/shaders/src/*.slang"
-)
-file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/bin/shaders)
-foreach(SLANG ${SLANG_SOURCE_FILE})
-  message(STATUS "Adding shader to build : " ${SLANG})
-  get_filename_component(FILE_NAME ${SLANG} NAME)
-  set(SPIRV "${PROJECT_SOURCE_DIR}/bin/shaders/${FILE_NAME}.spv")
-  add_custom_command(
-    OUTPUT ${SPIRV}
-    COMMAND ${SLANG_VALIDATOR} -target spirv -o ${SPIRV} -- ${SLANG}
-    DEPENDS ${SLANG})
-  list(APPEND SPIRV_BINARY_FILES ${SPIRV})
-endforeach(SLANG)
-
-add_custom_target(
-  Shaders
-  DEPENDS ${SPIRV_BINARY_FILES}
+    "${PROJECT_SOURCE_DIR}/shaders/src/*.slang"
 )
 
+set(SHADER_HEADER_FILES "")
+
+foreach(SLANG_FILE ${SLANG_SOURCE_FILE})
+    get_filename_component(FILE_NAME ${SLANG_FILE} NAME)
+    get_filename_component(FILE_STEM ${SLANG_FILE} NAME_WE)
+
+    set(SPIRV_FILE  "${CMAKE_BINARY_DIR}/shaders/${FILE_NAME}.spv")
+    set(HEADER_FILE "${SHADER_HEADER_DIR}/${FILE_NAME}.h")
+
+    string(TOUPPER "${FILE_STEM}" STEM_UPPER)
+    string(REPLACE "-" "_" STEM_UPPER "${STEM_UPPER}")
+    set(VAR_NAME "${STEM_UPPER}_SPIRV")
+
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/shaders")
+
+    add_custom_command(
+        OUTPUT  ${SPIRV_FILE}
+        COMMAND ${SLANG_VALIDATOR} -target spirv -o ${SPIRV_FILE} -- ${SLANG_FILE}
+        DEPENDS ${SLANG_FILE}
+        COMMENT "Compiling shader: ${FILE_NAME}"
+    )
+
+    add_custom_command(
+        OUTPUT  ${HEADER_FILE}
+        COMMAND ${CMAKE_COMMAND}
+                -DINPUT_FILE=${SPIRV_FILE}
+                -DOUTPUT_FILE=${HEADER_FILE}
+                -DVARIABLE_NAME=${VAR_NAME}
+                -P ${PROJECT_SOURCE_DIR}/cmake/spirv_to_header.cmake
+        DEPENDS ${SPIRV_FILE}
+        COMMENT "Generating header: ${FILE_NAME}.h"
+    )
+
+    list(APPEND SHADER_HEADER_FILES ${HEADER_FILE})
+    message(STATUS "Registering shader: ${FILE_NAME} -> ${VAR_NAME}")
+endforeach()
+
+add_custom_target(Shaders DEPENDS ${SHADER_HEADER_FILES})
 add_dependencies(RtVk Shaders)

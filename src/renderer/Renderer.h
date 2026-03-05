@@ -1,3 +1,5 @@
+#pragma once
+
 #include "ImageBuffer.h"
 #include "Scene.h"
 class Renderer {

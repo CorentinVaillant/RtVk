@@ -1,6 +1,9 @@
 #pragma once
 
+#include "graphics/GPUAccelerationStruct.h"
+#include "graphics/vulkan_context.h"
 #include "types.h"
+#include <utility>
 
 struct HitRecord {
   glm::vec3 p;
@@ -33,16 +36,19 @@ public:
   static constexpr uint32_t MISS_INDEX = -1;
   virtual uint32_t hit(Ray r, Interval ray_t, HitRecord *records) const = 0;
   virtual std::optional<const IHittable *> get_hitted(uint32_t index) const = 0;
+
+  // vulkan
+  virtual Tlas get_gpu_struct(VulkanContext &ctx) const = 0;
 };
 
-class HittableVector : public IAccStruct {
+template <Hittable T> class HittableVector : public IAccStruct {
 public:
   // -- Constructors
   HittableVector() = default;
 
-  template <Hittable T> HittableVector(std::vector<T> &&objects) {
+  HittableVector(std::vector<T> &&objects) {
     for (auto &&object : std::move(objects)) {
-      _objects.push_back(std::make_unique<T>(std::move(object)));
+      _objects.push_back(std::move(object));
     }
   }
 
@@ -73,7 +79,7 @@ public:
     HitRecord temp_rec;
 
     for (uint32_t i = 0; i < _objects.size(); i++) {
-      const IHittable &object = *_objects[i].get();
+      const IHittable &object = _objects[i];
       if (object.hit(r, Interval(ray_t.min, closest_so_far), &temp_rec)) {
         closest_index = i;
         closest_so_far = temp_rec.t;
@@ -84,11 +90,22 @@ public:
   }
   std::optional<const IHittable *> get_hitted(uint32_t index) const override {
     return (index < _objects.size())
-               ? std::optional<const IHittable *>{_objects[index].get()}
+               ? std::optional<const IHittable *>{&_objects[index]}
                : std::nullopt;
+  }
+
+  Tlas get_gpu_struct(VulkanContext &ctx) const override {
+    std::vector<VkAabbPositionsKHR> aabbs;
+    for (auto &obj : _objects)
+      aabbs.push_back(obj.get_bbox().to_vk());
+
+    std::vector<Blas> blas_vec;
+    blas_vec.emplace_back(ctx, aabbs);
+
+    return Tlas(ctx, std::move(blas_vec));
   }
 
 private:
   // -- Members
-  std::vector<std::unique_ptr<IHittable>> _objects;
+  std::vector<T> _objects;
 };

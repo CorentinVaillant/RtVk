@@ -11,15 +11,17 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <span>
 #include <type_traits>
+#include <utility>
 #include <vector>
 // glm
 #include <glm/common.hpp>
 // vulkan
+#define VK_NO_PROTOTYPES
 #include <vulkan/vk_enum_string_helper.h>
 // other
 #include <fmt/core.h>
-#include <utility>
 #include <utils/ansi_code.h>
 
 #define NVERBOSE 4
@@ -34,6 +36,8 @@ enum LogLvl {
 };
 
 // -- Macros --
+
+constexpr bool THROW_ON_MACRO_ERR = true;
 
 #define NO_COPY(CLASS_NAME)                                                    \
   CLASS_NAME(const CLASS_NAME &) = delete;                                     \
@@ -74,6 +78,8 @@ enum LogLvl {
     fmt::print("[{}ERR {}] {}::{} ", ansi_code::BRED, ansi_code::reset,        \
                __func__, __LINE__);                                            \
     fmt::println(__VA_ARGS__);                                                 \
+    if (THROW_ON_MACRO_ERR)                                                    \
+      throw std::runtime_error("Log err");                                     \
   }
 
 #define VK_CHECK(x)                                                            \
@@ -175,6 +181,15 @@ struct BBox {
     if (t)
       *t = t_min;
     return true;
+  }
+
+  VkAabbPositionsKHR to_vk() const {
+    return VkAabbPositionsKHR{.minX = x.min,
+                              .minY = y.min,
+                              .minZ = z.min,
+                              .maxX = x.max,
+                              .maxY = y.max,
+                              .maxZ = z.max};
   }
 };
 

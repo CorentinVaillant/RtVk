@@ -5,8 +5,8 @@
 #include "graphics/utils.h"
 #include "types.h"
 #include <vector>
-#include <vk_mem_alloc.h>
-#include <vulkan/vulkan_core.h>
+#include "vma_usage.h"
+#include <volk.h>
 
 class Image;
 
@@ -64,6 +64,7 @@ public:
   uint32_t _graphicQueueFamily;
   VkQueue _computeQueue;
   uint32_t _computeQueueFamily;
+  VmaVulkanFunctions _vmaVulkanFunction;
   VmaAllocator _memAllocator;
 
 private:

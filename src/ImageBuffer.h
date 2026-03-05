@@ -4,8 +4,7 @@
 #include "types.h"
 
 #include <cstddef>
-#include <vulkan/vulkan_core.h>
-#include <graphics/Image.h>
+#include "graphics/Image.h"
 
 enum ImageFormat {
   PNG,

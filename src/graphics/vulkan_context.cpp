@@ -1,19 +1,22 @@
 #include "vulkan_context.h"
+
+// SDL
 #include "SDL3/SDL.h"
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_video.h"
 #include "SDL3/SDL_vulkan.h"
+// VkBootstrap
+#include <VkBootstrap.h>
+// local
+#include "Image.h"
 #include "graphics/requiered_vk_features.h"
 #include "graphics/utils.h"
 #include "types.h"
-#include <VkBootstrap.h>
-#include <cassert>
-#include <vulkan/vulkan_core.h>
 
-#include "Image.h"
+#define VOLK_IMPLEMENTATION
+#include <volk.h>
 
-#define VMA_IMPLEMENTATION
-#include <vk_mem_alloc.h>
+#include "vma_usage.h"
 
 #ifdef NDEBUG
 bool s_use_validation_layers = true;
@@ -224,6 +227,8 @@ void VulkanContext::clean_context() {
   vkDeviceWaitIdle(_device);
 
   _mainDelQueue.flush();
+
+  volkFinalize();
 }
 
 // -- Init functions --
@@ -240,6 +245,9 @@ void VulkanContext::init_sdl(const char *app_name) {
 }
 
 void VulkanContext::init_vulkan(const char *app_name) {
+
+  VK_CHECK(volkInitialize());
+
   // init instance
   vkb::InstanceBuilder inst_builder;
   auto inst_ret = inst_builder.set_app_name(app_name)
@@ -253,6 +261,7 @@ void VulkanContext::init_vulkan(const char *app_name) {
            inst_ret.error().message());
 
   _instance = inst_ret.value().instance;
+  volkLoadInstance(_instance);
   _debugUtilMsg = inst_ret.value().debug_messenger;
 
   LOG(2, "Instance init.");
@@ -267,6 +276,7 @@ void VulkanContext::init_vulkan(const char *app_name) {
                           .set_required_features_13(REQUIRED_VULKAN_13_FEATURES)
                           .set_required_features_12(REQUIRED_VULKAN_12_FEATURES)
                           .set_required_features_11(REQUIRED_VULKAN_11_FEATURES)
+                          .add_required_extensions(REQUIRED_DEVICE_EXTENSIONS)
                           .set_surface(_surface)
                           .select();
   if (!selector_ret)
@@ -274,18 +284,26 @@ void VulkanContext::init_vulkan(const char *app_name) {
            selector_ret.error().message());
 
   _physicalDevice = selector_ret.value().physical_device;
+
+  selector_ret.value().enable_extensions_if_present(REQUIRED_DEVICE_EXTENSIONS);
   LOG(2, "physical device init.");
   LOG(2, "   => Loaded physical device :{}", selector_ret.value().name);
 
   // init device
+  auto required_acc_struct_features = REQUIRED_ACC_STRUCT_FEATURES;
+  auto required_rt_features = REQUIRED_RT_FEATURES;
   vkb::DeviceBuilder device_builder{selector_ret.value()};
-  auto device_ret = device_builder.build();
+  auto device_ret = device_builder.add_pNext(&required_acc_struct_features)
+                        .add_pNext(&required_rt_features)
+                        .build();
   if (!device_ret)
     LOGERR("Could not build the device with vkb : {}",
            device_ret.error().message());
   vkb::Device vkb_device = device_ret.value();
   _device = vkb_device.device;
   LOG(2, "Device init.");
+
+  volkLoadDevice(_device);
 
   // init queues
   auto graphic_queue_ret = vkb_device.get_queue(vkb::QueueType::graphics);
@@ -309,11 +327,16 @@ void VulkanContext::init_vulkan(const char *app_name) {
            queue_family.error().message());
 
   // init VMA allocator
+
+  _vmaVulkanFunction.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+  _vmaVulkanFunction.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
   VmaAllocatorCreateInfo allocator_create_info{};
   allocator_create_info.device = _device;
   allocator_create_info.physicalDevice = _physicalDevice;
   allocator_create_info.instance = _instance;
   allocator_create_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+  allocator_create_info.pVulkanFunctions = &_vmaVulkanFunction;
   vmaCreateAllocator(&allocator_create_info, &_memAllocator);
 
   // init fence

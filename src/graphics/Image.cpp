@@ -2,8 +2,7 @@
 #include "graphics/Buffer.h"
 #include "graphics/utils.h"
 #include "types.h"
-#include <vulkan/vulkan_core.h>
-
+#include <volk.h>
 // -- Contructors --
 
 Image::Image(VulkanContext &ctx, VkExtent3D size, ImgFormat format,

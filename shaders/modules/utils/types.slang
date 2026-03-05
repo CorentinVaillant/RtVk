@@ -77,3 +77,8 @@ public Complexe pow_u(Complexe c, uint p)
 
     return acc;
 }
+
+public bool contains_open(float min, float max, float t)
+{
+    return min < t && t < max;
+}

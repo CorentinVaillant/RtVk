@@ -6,8 +6,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstring>
-#include <vulkan/vulkan_core.h>
-
+#include <volk.h>
 // ~ : There is a lot of parameters that are defaulted, maybe make
 // an
 // aditional struct builder, that register all of this
@@ -41,6 +40,31 @@ public:
                              &_allocInfo));
   }
 
+  // move constructor
+  Buffer(Buffer &&rval)
+      : _ctx_allocator(rval._ctx_allocator), _buffer(rval._buffer),
+        _alloc(rval._alloc), _allocInfo(rval._allocInfo), _count(rval._count) {
+
+    rval._ctx_allocator = nullptr;
+    rval._buffer = VK_NULL_HANDLE;
+    rval._alloc = nullptr;
+    rval._allocInfo = {};
+    rval._count = 0;
+  }
+
+  // move asigment
+  Buffer &operator=(Buffer &&rval) {
+    if (this != &rval) {
+      _ctx_allocator = rval._ctx_allocator;
+      _buffer = rval._buffer;
+
+      _alloc = rval._alloc;
+      _allocInfo = rval._allocInfo;
+      _count = rval._count;
+    }
+    return *this;
+  }
+
   ~Buffer() { vmaDestroyBuffer(_ctx_allocator, _buffer, _alloc); }
 
   NO_COPY(Buffer);
@@ -51,12 +75,24 @@ public:
            count * sizeof(T));
   }
 
+  void write(std::span<T> data) { write(data.size(), data.data()); }
+
   void read(size_t count, T *dst) {
     memcpy(dst, _allocInfo.pMappedData, count * sizeof(T));
   }
 
+  VkDeviceAddress get_device_adresse(VkDevice device) const {
+    VkBufferDeviceAddressInfo info{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .pNext = nullptr,
+        .buffer = _buffer,
+    };
+
+    return vkGetBufferDeviceAddress(device, &info);
+  }
+
   // -- Attributs
-private:
+protected:
   VmaAllocator _ctx_allocator;
 
 public:
@@ -64,4 +100,24 @@ public:
   VmaAllocation _alloc;
   VmaAllocationInfo _allocInfo;
   size_t _count;
+};
+
+template <std::copy_constructible T> class BlasBuffer : public Buffer<T> {
+  static constexpr VkBufferUsageFlags USAGE =
+      VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+      VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+public:
+  BlasBuffer(VulkanContext &ctx, size_t alloc_count, VmaMemoryUsage mem_usage)
+      : Buffer<T>(ctx, alloc_count, USAGE, mem_usage) {}
+};
+
+template <std::copy_constructible T> class TlasBuffer : public Buffer<T> {
+  static constexpr VkBufferUsageFlags USAGE =
+      VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+      VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+public:
+  TlasBuffer(VulkanContext &ctx, size_t alloc_count, VmaMemoryUsage mem_usage)
+      : Buffer<T>(ctx, alloc_count, USAGE, mem_usage) {}
 };

@@ -3,7 +3,7 @@
 #include "graphics/raii_graphic.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 class VulkanContext;
 
@@ -19,11 +19,14 @@ void transition_image(VkCommandBuffer cmd, VkImage image,
 enum DescriptorType {
   StorageImage = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
   UniformBuffer = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+  StorageBuffer = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+  AccelerationStruct = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
   // ...
 };
 
 enum SinglePipelineStage {
   ComputeStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+
   VertexStage = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
   FragmentStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
   // ...
@@ -41,9 +44,15 @@ struct PipelineStages {
 
 enum SingleShaderStage {
   ComputeShader = VK_SHADER_STAGE_COMPUTE_BIT,
+
   VertexShader = VK_SHADER_STAGE_VERTEX_BIT,
   FragmentShader = VK_SHADER_STAGE_FRAGMENT_BIT,
-  // ...
+
+  Raygen = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+  ClosestHit = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+  Miss = VK_SHADER_STAGE_MISS_BIT_KHR,
+  Intersection = VK_SHADER_STAGE_INTERSECTION_BIT_KHR,
+
 };
 
 struct ShaderStages {
@@ -93,7 +102,7 @@ public:
   };
 
   DescriptorAllocator(VulkanContext &ctx, uint32_t init_size,
-                      std::span<PoolSizeRatio> sizes);
+                      std::span<const PoolSizeRatio> sizes);
   NO_COPY(DescriptorAllocator);
 
   ~DescriptorAllocator();
@@ -152,7 +161,7 @@ private:
   static constexpr size_t MAX_SIZE = 4096;
 };
 
-// -- DescriptorWritter 
+// -- DescriptorWritter
 
 class DescriptorWriter {
 
@@ -181,7 +190,8 @@ private:
 struct DescriptorLayoutBuilder {
   std::vector<VkDescriptorSetLayoutBinding> _bindings;
 
-  DescriptorLayoutBuilder &add_binding(uint32_t binding, DescriptorType type);
+  DescriptorLayoutBuilder &add_binding(uint32_t binding, DescriptorType type,
+                                       ShaderStages stages = {});
   void clear() { _bindings.clear(); }
   DescriptorSetLayout build(VkDevice device, ShaderStages stages,
                             void *pNext = nullptr,
