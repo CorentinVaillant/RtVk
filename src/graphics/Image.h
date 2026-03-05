@@ -52,7 +52,7 @@ public:
 
   NO_COPY(Image);
 
-  // TODO move constr
+  
 
   ~Image() {
     vkDestroyImageView(_device, _view, nullptr);

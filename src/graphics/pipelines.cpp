@@ -1,8 +1,9 @@
 #include "pipelines.h"
 #include "glm/ext/vector_uint3.hpp"
+#include "types.h"
 // -- ComputePipeline --
 
-// -- Constructors --
+// -- Constructors
 // public:
 ComputePipeline::ComputePipeline(VulkanContext &ctx,
                                  PipelineDescriptor &descriptor,
@@ -26,7 +27,7 @@ ComputePipeline::ComputePipeline(VulkanContext &ctx,
       .basePipelineHandle = {}, // No inheritance
       .basePipelineIndex = {},
   };
-  
+
   VK_CHECK(vkCreateComputePipelines(_deviceCtx, VK_NULL_HANDLE, 1, &create_info,
                                     nullptr, &_pipeline));
 }
@@ -39,7 +40,7 @@ ComputePipeline::~ComputePipeline() {
   ;
 }
 
-// -- Methods --
+// -- Methods
 
 void ComputePipeline::bind(VkCommandBuffer cmd, VkDescriptorSet descriptor) {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
@@ -63,5 +64,7 @@ void ComputePipeline::init_layout(PipelineDescriptor &descriptor) {
   create_info.pSetLayouts = &_descrSetLayout;
   create_info.pPushConstantRanges = &descriptor._pushCstRange;
 
-  vkCreatePipelineLayout(_deviceCtx, &create_info, nullptr, &_layout);
+  VK_CHECK(vkCreatePipelineLayout(_deviceCtx, &create_info, nullptr, &_layout));
 }
+
+// -- RT pipeline --

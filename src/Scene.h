@@ -13,14 +13,3 @@ struct Scene {
   Camera camera;
   std::unique_ptr<IAccStruct> _accStruct;
 };
-
-class GPUScene {
-public:
-  GPUScene(VulkanContext &ctx, const Scene &scene) {}
-  // -- Attribts
-
-public:
-//TODO
-private:
-  VkDevice _ctxDevice;
-};

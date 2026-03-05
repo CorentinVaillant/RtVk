@@ -21,5 +21,3 @@ private:
   // constants func
   static Color BlackBackground(Ray r) { return BLACK; };
 };
-
-// TODO HDRBackground

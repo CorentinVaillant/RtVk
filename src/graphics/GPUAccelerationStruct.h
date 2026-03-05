@@ -15,6 +15,8 @@ class Blas {
 public:
   NO_COPY(Blas);
 
+  Blas() = delete;
+
   Blas(VulkanContext &ctx, std::span<VkAabbPositionsKHR> aabbs)
       : _ctxDevice(ctx._device), _aabbsBuffer(upload_buffer(ctx, aabbs)),
         _blasBuffer(std::nullopt) {
@@ -150,6 +152,7 @@ public:
 class Tlas {
 public:
   NO_COPY(Tlas);
+  Tlas() = delete;
 
   Tlas(VulkanContext &ctx, std::vector<Blas> &&blas_vec)
       : _ctxDevice(ctx._device), _blasVec(std::move(blas_vec)),

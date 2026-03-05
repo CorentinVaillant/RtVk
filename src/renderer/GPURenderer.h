@@ -20,7 +20,13 @@ public:
   GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer);
   GPURenderer(VulkanContext &ctx, size_t img_width, size_t img_heigth,
               ImgFormat format)
-      : GPURenderer(ctx, ImageBuffer(img_width, img_heigth, format)) {}
+      : GPURenderer(ctx, ImageBuffer(img_width, img_heigth, format)) {
+
+    // TODO : init the rt pipeline
+
+
+    // ...
+  }
 
   // -- Methods --
 
