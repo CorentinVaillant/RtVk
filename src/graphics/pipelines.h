@@ -1,13 +1,16 @@
 #pragma once
 #include "glm/ext/vector_uint3.hpp"
+#include "graphics/Buffer.h"
 #include "graphics/PipelineDescriptor.h"
 #include "graphics/Shaders.h"
+#include "graphics/utils.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"
 #include <cassert>
 #include <concepts>
 #include <cstdint>
 #include <volk.h>
+#include <vulkan/vulkan_core.h>
 
 // -- ComputePipeline --
 
@@ -65,78 +68,59 @@ struct RtPipelineCreateInfos {
 };
 
 class RtPipeline {
+  static constexpr ShaderStages ALL_STAGES = {Raygen, ClosestHit, Miss,
+                                              Intersection};
+
 public:
   NO_COPY(RtPipeline);
 
   RtPipeline(VulkanContext &ctx, PipelineDescriptor &descriptor,
-             RtPipelineCreateInfos &pipeline_infos)
-      : _ctxDevice(ctx._device) {
+             RtPipelineCreateInfos &pipeline_infos);
 
-    auto stages = descriptor.get_stages_infos();
-    assert(stages.size() >= 3);
+  ~RtPipeline();
 
-    init_sampler(descriptor);
-    init_descr_set_layout(ctx, descriptor);
-    init_layout(descriptor);
-
-    uint32_t group_count = static_cast<uint32_t>(pipeline_infos.groups.size());
-
-    VkRayTracingPipelineCreateInfoKHR create_info{
-        .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
-        .pNext = nullptr,
-        .flags = {}, // ?
-        .stageCount = static_cast<uint32_t>(stages.size()),
-        .pStages = stages.data(),
-        .groupCount = group_count,
-        .pGroups = pipeline_infos.groups.data(),
-        .maxPipelineRayRecursionDepth = pipeline_infos.max_rt_depth,
-        .pLibraryInfo = {},      //| no lib
-        .pLibraryInterface = {}, //|
-        .pDynamicState = {},
-        .layout = _layout,
-        .basePipelineHandle = {}, //| No inheritance
-        .basePipelineIndex = {},  //|
-    };
-
-    vkCreateRayTracingPipelinesKHR(_ctxDevice, VK_NULL_HANDLE, VK_NULL_HANDLE,
-                                   1, &create_info, nullptr, &_rtPipeline);
-  }
-
-  ~RtPipeline() {
-    vkDestroyPipeline(_ctxDevice, _rtPipeline, nullptr);
-    vkDestroyPipelineLayout(_ctxDevice, _layout, nullptr);
-    vkDestroyDescriptorSetLayout(_ctxDevice, _desrSetLayout, nullptr);
-    vkDestroySampler(_ctxDevice, _sampler, nullptr);
-  }
+  // -- Getters
+  const Buffer<uint8_t> &get_sbt_buffer() const { return _sbtBuffer.value(); }
+  const VkSampler get_sampler() const {return _sampler;}
+  const VkDescriptorSetLayout get_descr_set_layout() const {return _desrSetLayout;}
+  
 
   // -- Methods --
+  void bind(VkCommandBuffer cmd, VkDescriptorSet descriptor);
+
+  template <typename PushCst>
+    requires std::copy_constructible<PushCst>
+  void dispatch(VkCommandBuffer cmd, VkDescriptorSet descriptor,
+                glm::uvec3 draw_region, PushCst push_cst) {
+    bind(cmd, descriptor);
+
+    vkCmdPushConstants(cmd, _layout, ALL_STAGES._vkShaderStageFlags, 0,
+                       sizeof(PushCst), &push_cst);
+
+    vkCmdTraceRaysKHR(cmd, &_raygen_region, &_miss_region, &_hit_region,
+                      &_callable_region, draw_region.x, draw_region.y,
+                      draw_region.z);
+  }
 
 private:
-  void init_sampler(PipelineDescriptor &descriptor) {
-    VK_CHECK(vkCreateSampler(_ctxDevice, &descriptor._samplerInfo, nullptr,
-                             &_sampler));
-  }
+  void init_sampler(PipelineDescriptor &descriptor);
 
   void init_descr_set_layout(VulkanContext &ctx,
-                             PipelineDescriptor &descriptor) {
-    _desrSetLayout = descriptor.create_descriptor_binding(ctx, _sampler);
-  }
+                             PipelineDescriptor &descriptor);
 
-  void init_layout(PipelineDescriptor &descriptor) {
-    VkPipelineLayoutCreateInfo create_info = descriptor._layoutInfo;
-    create_info.pSetLayouts = &_desrSetLayout;
-    create_info.pPushConstantRanges = &descriptor._pushCstRange;
-
-    VK_CHECK(
-        vkCreatePipelineLayout(_ctxDevice, &create_info, nullptr, &_layout));
-  }
+  void init_layout(PipelineDescriptor &descriptor);
 
 private:
   VkDevice _ctxDevice;
+
+  std::optional<Buffer<uint8_t>> _sbtBuffer = std::nullopt;
 
   VkSampler _sampler;
   VkDescriptorSetLayout _desrSetLayout;
   VkPipelineLayout _layout;
 
   VkPipeline _rtPipeline;
+
+  VkStridedDeviceAddressRegionKHR _raygen_region, _miss_region, _hit_region,
+      _callable_region;
 };

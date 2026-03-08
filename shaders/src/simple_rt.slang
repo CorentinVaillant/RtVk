@@ -2,7 +2,7 @@
 
 import "../modules/utils";
 
-struct Uniforms
+struct PushedCst
 {
     float screenWidth, screenHeight;
     float focalLength, frameHeight;
@@ -13,7 +13,7 @@ struct Uniforms
     Vec4 lightDir;
 };
 
-struct HitAttribut
+    struct HitAttribut
 {
     Vec3 position;
     float time;
@@ -33,26 +33,30 @@ struct RayPayload
     Vec4 color;
 };
 
+[[vk::binding(0, 0)]]
 uniform RWTexture2D resultTexture;
+[[vk::binding(1, 0)]]
 uniform RaytracingAccelerationStructure scene;
-uniform Uniforms uniforms;
+
+[[vk::push_constant]]
+ConstantBuffer<PushedCst> pushed;
 
 [shader("raygeneration")]
 void rayGen()
 {
     uint2 threadIdx = DispatchRaysIndex().xy;
-    if (threadIdx.x >= (int)uniforms.screenWidth || threadIdx.y >= (int)uniforms.screenHeight)
+    if (threadIdx.x >= (int)pushed.screenWidth || threadIdx.y >= (int)pushed.screenHeight)
         return;
 
-    float frameWidth = uniforms.screenWidth / uniforms.screenHeight * uniforms.frameHeight;
-    float imageY = (threadIdx.y / uniforms.screenHeight - 0.5f) * uniforms.frameHeight;
-    float imageX = (threadIdx.x / uniforms.screenWidth - 0.5f) * frameWidth;
-    float imageZ = uniforms.focalLength;
-    Vec3 rayDir = normalize(uniforms.cameraDir.xyz * imageZ - uniforms.cameraUp.xyz * imageY - uniforms.cameraRight.xyz * imageX);
+    float frameWidth = pushed.screenWidth / pushed.screenHeight * pushed.frameHeight;
+    float imageY = (threadIdx.y / pushed.screenHeight - 0.5f) * pushed.frameHeight;
+    float imageX = (threadIdx.x / pushed.screenWidth - 0.5f) * frameWidth;
+    float imageZ = pushed.focalLength;
+    Vec3 rayDir = normalize(pushed.cameraDir.xyz * imageZ - pushed.cameraUp.xyz * imageY - pushed.cameraRight.xyz * imageX);
 
     // trace the ray
     RayDesc ray;
-    ray.Origin = uniforms.cameraPosition.xyz;
+    ray.Origin = pushed.cameraPosition.xyz;
     ray.Direction = rayDir;
     ray.TMin = 0.001;
     ray.TMax = 10000.0f;
@@ -85,6 +89,7 @@ struct Sphere
     float radius;
 };
 
+[[vk::binding(3, 0)]]
 uniform StructuredBuffer<Sphere> primitiveBuffer;
 
 [shader("intersection")]

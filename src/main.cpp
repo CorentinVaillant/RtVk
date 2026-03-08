@@ -15,6 +15,8 @@
 #include "test.h"
 #include "types.h"
 
+constexpr bool GPU_RENDER = true;
+
 int main() {
   LOG(1, "Starting app !");
 
@@ -39,10 +41,17 @@ int main() {
     std::vector<Sphere> objects = {Sphere{glm::vec3(-5.05, 0, 0), 5.},
                                    Sphere{glm::vec3(5.05, 0, 0), 5.}};
 
-    Scene scene{Camera(), std::make_unique<HittableVector<Sphere>>(std::move(objects))};
+    Scene scene{Camera(),
+                std::make_unique<HittableVector<Sphere>>(std::move(objects))};
 
-    std::unique_ptr<Renderer> renderer =std::make_unique<SimpleCPURenderer>(ctx.get_window_size().width,
-                                               ctx.get_window_size().height);
+    std::unique_ptr<Renderer> renderer = nullptr;
+
+    if (GPU_RENDER)
+      renderer = std::make_unique<GPURenderer>(
+          ctx, ctx.get_window_size().width, ctx.get_window_size().height, RGBA);
+    else
+      renderer = std::make_unique<SimpleCPURenderer>(
+          ctx.get_window_size().width, ctx.get_window_size().height);
 
     renderer->render(scene);
     LOG(1, "Running ray done !");

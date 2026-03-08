@@ -12,7 +12,7 @@
 // aditional struct builder, that register all of this
 // informations before building and allocating the buffer
 
-template <std::copy_constructible T> class Buffer {
+template <std::copy_constructible T = uint8_t> class Buffer {
 public:
   // -- Constructors
   Buffer(VulkanContext &ctx, size_t alloc_count, VkBufferUsageFlags usage,
@@ -75,7 +75,17 @@ public:
            count * sizeof(T));
   }
 
+  void write(size_t offset, size_t count, const T *data) {
+    uint8_t *dst = reinterpret_cast<uint8_t *>(_allocInfo.pMappedData);
+
+    memcpy(dst + offset * sizeof(T), reinterpret_cast<const uint8_t *>(data),
+           count * sizeof(T));
+  }
+
   void write(std::span<T> data) { write(data.size(), data.data()); }
+  void write(size_t offset, std::span<T> data) {
+    write(offset, data.size(), data.data());
+  }
 
   void read(size_t count, T *dst) {
     memcpy(dst, _allocInfo.pMappedData, count * sizeof(T));

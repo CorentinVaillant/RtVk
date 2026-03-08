@@ -240,7 +240,7 @@ void DescriptorWriter::write_image(uint32_t binding, VkImageView view,
 }
 void DescriptorWriter::write_buffer(uint32_t binding, VkBuffer buffer,
                                     size_t size, size_t offset,
-                                    VkDescriptorType descriptor_type) {
+                                    VkDescriptorType descriptor_type, void* pNext /* = nullptr */) {
 
   VkDescriptorBufferInfo &info =
       _buffer_infos.emplace_back(VkDescriptorBufferInfo{
@@ -251,7 +251,7 @@ void DescriptorWriter::write_buffer(uint32_t binding, VkBuffer buffer,
 
   _writes.emplace_back(VkWriteDescriptorSet{
       .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-      .pNext = nullptr,
+      .pNext = pNext,
       .dstSet = VK_NULL_HANDLE, // Empty for now, will be set during write
       .dstBinding = binding,
       .dstArrayElement = 0,

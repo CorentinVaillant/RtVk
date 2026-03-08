@@ -1,5 +1,6 @@
 #pragma once
 
+#include "glm/geometric.hpp"
 #include "types.h"
 
 struct Camera {
@@ -17,7 +18,7 @@ struct Camera {
     glm::vec3 center;
     glm::vec3 view_u, view_v;
     glm::vec3 dt_u, dt_v;                     // differances between two pixel
-    glm::mat3 uvw;                            // Camera frame basis
+    glm::vec3 u,v,w;                            // Camera frame basis
     glm::vec3 defocus_disk_u, defocus_disk_v; // Defocus disk
     glm::vec3 viewport_uper_left;
     glm::vec3 px00_loc;
@@ -38,27 +39,30 @@ struct Camera {
     float view_heigth = 2 * h * focusDist;
     float view_width = view_heigth * aspect_ratio;
 
-    glm::vec3 w = glm::normalize(lookFrom - lookAt);
-    glm::vec3 u = glm::normalize(glm::cross(vUp, w));
-    glm::vec3 v = glm::cross(w, u);
-    result.uvw = glm::mat3(u, v, w);
+    result.w = glm::normalize(lookFrom - lookAt);
+    result.u = glm::normalize(glm::cross(vUp, result.w));
+    result.v = glm::cross(result.w, result.u);
 
-    result.view_u = view_width * u;
-    result.view_v = view_heigth * v;
+    result.view_u = view_width * result.u;
+    result.view_v = view_heigth * result.v;
 
     result.dt_u = result.view_u / static_cast<float>(width);
     result.dt_v = result.view_v / static_cast<float>(heigth);
 
     float defocus_rad = focusDist * std::tan(defocusAngle / 2.f);
-    result.defocus_disk_u = u * defocus_rad;
-    result.defocus_disk_v = v * defocus_rad;
+    result.defocus_disk_u = result.u * defocus_rad;
+    result.defocus_disk_v = result.v * defocus_rad;
 
     result.viewport_uper_left =
-        lookFrom - (focusDist * w) - result.view_u / 2.f - result.view_v / 2.f;
+        lookFrom - (focusDist * result.w) - result.view_u / 2.f - result.view_v / 2.f;
 
     result.px00_loc =
         result.viewport_uper_left + 0.5f * (result.dt_u + result.dt_u);
 
     return result;
+  }
+
+  glm::vec3 get_view_direction() const {
+    return glm::normalize(lookAt - lookFrom);
   }
 };

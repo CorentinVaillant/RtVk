@@ -1,9 +1,15 @@
 #pragma once
 
+#include "graphics/Buffer.h"
 #include "graphics/GPUAccelerationStruct.h"
+#include "graphics/vma_usage.h"
 #include "graphics/vulkan_context.h"
+
+#include "renderer/renderer_utils.h"
 #include "types.h"
+
 #include <utility>
+#include <vulkan/vulkan_core.h>
 
 struct HitRecord {
   glm::vec3 p;
@@ -23,6 +29,13 @@ public:
   virtual bool hit(Ray r, Interval ray_t, HitRecord *records) const = 0;
   virtual BBox get_bbox() const = 0;
 
+  /// Should return the size taken by the object inside a Vulkan Buffer.
+  /// Should be identical for each objects of the same types
+  virtual uint32_t get_in_buffer_size() const = 0;
+  // Should return the next write address
+  virtual uint32_t write_in_buffer(Buffer<uint8_t> &buffer,
+                                   uint32_t index) const = 0;
+
   virtual ~IHittable() = default;
 };
 
@@ -39,6 +52,7 @@ public:
 
   // vulkan
   virtual Tlas get_gpu_struct(VulkanContext &ctx) const = 0;
+  virtual std::vector<Buffer<>> upload_to_buffers(VulkanContext &ctx) const = 0;
 };
 
 template <Hittable T> class HittableVector : public IAccStruct {
@@ -103,6 +117,27 @@ public:
     blas_vec.emplace_back(ctx, aabbs);
 
     return Tlas(ctx, std::move(blas_vec));
+  }
+
+  std::vector<Buffer<>> upload_to_buffers(VulkanContext &ctx) const override {
+    std::vector<Buffer<>> result;
+    if (_objects.empty()) {
+      result.emplace_back(ctx, 0, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                          VMA_MEMORY_USAGE_CPU_TO_GPU);
+      return result;
+    }
+
+    uint32_t object_size = _objects[0].get_in_buffer_size();
+    Buffer<> result_buffer(ctx, object_size * _objects.size(),
+                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                           VMA_MEMORY_USAGE_CPU_TO_GPU);
+    uint8_t curr_buffer_index = 0;
+
+    for (const T &obj : _objects)
+      curr_buffer_index = obj.write_in_buffer(result_buffer, curr_buffer_index);
+
+    result.emplace_back(std::move(result_buffer));
+    return result;
   }
 
 private:

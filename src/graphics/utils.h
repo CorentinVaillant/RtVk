@@ -35,11 +35,13 @@ enum SinglePipelineStage {
 struct PipelineStages {
   VkPipelineStageFlags _vkPipelineStageFlags = 0x0;
 
-  PipelineStages(const std::initializer_list<SinglePipelineStage> &stages) {
+  constexpr PipelineStages(
+      const std::initializer_list<SinglePipelineStage> &stages) {
     for (auto stage : stages)
       _vkPipelineStageFlags |= static_cast<VkPipelineStageFlagBits>(stage);
   }
-  PipelineStages(SinglePipelineStage stage) : PipelineStages({stage}) {}
+  constexpr PipelineStages(SinglePipelineStage stage)
+      : PipelineStages({stage}) {}
 };
 
 enum SingleShaderStage {
@@ -58,12 +60,16 @@ enum SingleShaderStage {
 struct ShaderStages {
   VkShaderStageFlags _vkShaderStageFlags = 0x0;
 
-  ShaderStages(const std::initializer_list<SingleShaderStage> &stages) {
+  constexpr ShaderStages(
+      const std::initializer_list<SingleShaderStage> &stages) {
     for (auto stage : stages)
       _vkShaderStageFlags |= static_cast<VkShaderStageFlagBits>(stage);
   }
-  ShaderStages(SingleShaderStage stage) : ShaderStages({stage}) {}
+  constexpr ShaderStages(SingleShaderStage stage) : ShaderStages({stage}) {}
 };
+
+inline constexpr ShaderStages ALL_RT_STAGE = {Raygen, ClosestHit, Miss,
+                                              Intersection};
 
 class DescriptorSetLayout {
 public:
@@ -109,7 +115,7 @@ public:
 
   // Methods
   void clear();
-  Raii_VkDescriptorSet allocate(VkDescriptorSetLayout layout,
+  Raii_VkDescriptorSet allocate(const VkDescriptorSetLayout layout,
                                 void *pNext = nullptr) {
 
     VkDescriptorPool pool_to_use = get_pool();
@@ -143,7 +149,7 @@ public:
     _readyPools.push_back(pool_to_use);
     return Raii_VkDescriptorSet(result_descr_set, {_ctxDevice, pool_to_use});
   }
-  Raii_VkDescriptorSet allocate(DescriptorSetLayout &layout) {
+  Raii_VkDescriptorSet allocate(const DescriptorSetLayout &layout) {
     return allocate(layout._descrSetLayout);
   }
 
@@ -173,7 +179,7 @@ public:
   void write_image(uint32_t binding, VkImageView view, VkSampler sampler,
                    VkImageLayout layout, VkDescriptorType descriptor_type);
   void write_buffer(uint32_t binding, VkBuffer buffer, size_t size,
-                    size_t offset, VkDescriptorType descriptor_type);
+                    size_t offset, VkDescriptorType descriptor_type, void* pNext = nullptr);
 
   void clear();
   void update_set(VkDevice device, VkDescriptorSet set);

@@ -2,6 +2,7 @@
 
 #include "graphics/vulkan_context.h"
 #include "types.h"
+#include "renderer/renderer_utils.h"
 
 #include <cstddef>
 #include "graphics/Image.h"

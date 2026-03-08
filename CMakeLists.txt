@@ -17,7 +17,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 
 add_subdirectory(src)
 
-message("Compiler : ${CMAKE_CXX_COMPILER}")
+message(STATUS "Compiler : ${CMAKE_CXX_COMPILER}")
 
 # SLANG shader compilation
 set(SHADER_HEADER_DIR ${PROJECT_SOURCE_DIR}/build/src/shaders)

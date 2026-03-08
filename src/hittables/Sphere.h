@@ -44,6 +44,16 @@ public:
     return BBox(_center - _radius, _center + _radius);
   }
 
+  /// Should return the size taken by the object inside a Vulkan Buffer.
+  /// Should be identical for each objects of the same types
+  uint32_t get_in_buffer_size() const override { return sizeof(Sphere); }
+  // Should return the next write address
+  uint32_t write_in_buffer(Buffer<uint8_t> &buffer,
+                           uint32_t index) const override {
+    buffer.write(index, sizeof(Sphere), reinterpret_cast<const uint8_t *>(this));
+    return index + sizeof(Sphere);
+  };
+
 private:
   glm::vec3 _center;
   float _radius;

@@ -268,6 +268,17 @@ public:
 
   // -- Getters
   VkAccelerationStructureKHR get_tlas() const { return _tlas; }
+  const TlasBuffer<uint8_t> &get_buffer() const { return _tlasBuffer.value(); }
+
+  VkWriteDescriptorSetAccelerationStructureKHR get_write_descr_alloc() const {
+    return VkWriteDescriptorSetAccelerationStructureKHR{
+        .sType =
+            VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+        .pNext = nullptr,
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &_tlas,
+    };
+  }
 
 private:
   static constexpr VkTransformMatrixKHR IDENTITY_TRANSFORM = {

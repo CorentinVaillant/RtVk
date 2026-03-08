@@ -15,13 +15,6 @@ add_subdirectory(VulkanMemoryAllocator)
 target_include_directories(glm INTERFACE glm)
 target_include_directories(volk INTERFACE volk)
 
-#add_library(sdl2 INTERFACE)
-
-#target_include_directories(sdl2 INTERFACE $ENV{VULKAN_SDK}/Include/SDL2 )
-#target_link_directories(sdl2 INTERFACE $ENV{VULKAN_SDK}/Lib )
-
-#target_link_libraries(sdl2 INTERFACE SDL2 SDL2main)
-
 add_library(imgui STATIC)
 
 target_include_directories(imgui PUBLIC imgui)
