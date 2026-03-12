@@ -2,18 +2,42 @@
 
 import "../modules/utils";
 
-struct PushedCst
+public struct PushedCst
 {
-    float screenWidth, screenHeight;
-    float focalLength, frameHeight;
-    Vec4 cameraDir;
-    Vec4 cameraUp;
-    Vec4 cameraRight;
-    Vec4 cameraPosition;
-    Vec4 lightDir;
+    public Camera camera;
+    public Vec4 lightDir;
+    public float screenWidth, screenHeight;
 };
 
-    struct HitAttribut
+public struct RendererUniforms
+{
+    public CameraRenderInfo camRenderInfo;
+
+    public RayDesc get_ray(Vec2 seed, float defocusAngle, uint i, uint j)
+    {
+        float i_f = (float)i;
+        float j_f = (float)j;
+
+        Vec4 px_sample = camRenderInfo.px00_loc +
+                         i_f * camRenderInfo.dt_u +
+                         j_f * camRenderInfo.dt_v;
+
+        Vec3 ray_origine = defocusAngle <= 0
+                               ? camRenderInfo.center.xyz
+                               : camRenderInfo.defocus_disk_sample(seed, camRenderInfo.center).xyz;
+
+        Vec3 ray_dir = px_sample.xyz - ray_origine;
+
+        RayDesc result;
+        result.Direction = ray_dir;
+        result.Origin = ray_origine;
+        result.TMin = 0.00001f;
+        result.TMax = 10000.0f;
+        return result;
+    }
+};
+
+struct HitAttribut
 {
     Vec3 position;
     float time;
@@ -33,10 +57,19 @@ struct RayPayload
     Vec4 color;
 };
 
+struct Sphere
+{
+    Vec4 position;
+    float radius;
+};
+
 [[vk::binding(0, 0)]]
 uniform RWTexture2D resultTexture;
 [[vk::binding(1, 0)]]
 uniform RaytracingAccelerationStructure scene;
+
+[[vk::binding(2, 0)]]
+uniform ConstantBuffer<RendererUniforms> uni;
 
 [[vk::push_constant]]
 ConstantBuffer<PushedCst> pushed;
@@ -45,21 +78,14 @@ ConstantBuffer<PushedCst> pushed;
 void rayGen()
 {
     uint2 threadIdx = DispatchRaysIndex().xy;
-    if (threadIdx.x >= (int)pushed.screenWidth || threadIdx.y >= (int)pushed.screenHeight)
+    uint2 imageSize;
+    resultTexture.GetDimensions(imageSize.x, imageSize.y);
+    Vec2 seed = Vec2(threadIdx * imageSize);
+
+    if (threadIdx.x >= imageSize.x || threadIdx.y >= imageSize.y)
         return;
 
-    float frameWidth = pushed.screenWidth / pushed.screenHeight * pushed.frameHeight;
-    float imageY = (threadIdx.y / pushed.screenHeight - 0.5f) * pushed.frameHeight;
-    float imageX = (threadIdx.x / pushed.screenWidth - 0.5f) * frameWidth;
-    float imageZ = pushed.focalLength;
-    Vec3 rayDir = normalize(pushed.cameraDir.xyz * imageZ - pushed.cameraUp.xyz * imageY - pushed.cameraRight.xyz * imageX);
-
-    // trace the ray
-    RayDesc ray;
-    ray.Origin = pushed.cameraPosition.xyz;
-    ray.Direction = rayDir;
-    ray.TMin = 0.001;
-    ray.TMax = 10000.0f;
+    RayDesc ray = uni.get_ray(seed, pushed.camera.defocusAngle, threadIdx.x, threadIdx.y);
 
     RayPayload payload = {};
     TraceRay(scene, RAY_FLAG_NONE, ~0, 0, 0, 0, ray, payload);
@@ -70,7 +96,7 @@ void rayGen()
 [shader("closesthit")]
 void closestHit(inout RayPayload payload, in HitAttribut attr)
 {
-    payload.color = Vec4(attr.normal / 2.f + 0.5, 1);
+    payload.color = Vec4(normalize(attr.normal) / 2.f + 0.5, 1);
 }
 
 [shader("miss")]
@@ -81,22 +107,20 @@ void miss(inout RayPayload payload)
 
 // -- Intersection part --
 
-// -- Sphere
-
-struct Sphere
-{
-    Vec3 position;
-    float radius;
-};
-
 [[vk::binding(3, 0)]]
 uniform StructuredBuffer<Sphere> primitiveBuffer;
+
+// -- Sphere
 
 [shader("intersection")]
 void sphereIntersection()
 {
+
+    HitAttribut hit_record;
+
     uint sphere_index = InstanceID() + GeometryIndex();
     Sphere sphere = primitiveBuffer[sphere_index];
+    Vec4 deb_pos = sphere.position;
 
     float t_min = RayTMin();
     float t_max = RayTCurrent();
@@ -105,7 +129,7 @@ void sphereIntersection()
     Vec3 ray_direction = WorldRayDirection();
 
     // fancy quadratic formula
-    Vec3 oc = sphere.position - ray_origin;
+    Vec3 oc = sphere.position.xyz - ray_origin;
     float a = dot(ray_direction, ray_direction);
     float h = dot(ray_direction, oc);
     float c = dot(oc, oc) - sphere.radius * sphere.radius;
@@ -126,10 +150,10 @@ void sphereIntersection()
     }
 
     // HIT !
-    HitAttribut hit_record;
+    // HitAttribut hit_record;
     hit_record.time = root;
     hit_record.position = ray_origin + root * ray_direction;
-    Vec3 out_normal = (hit_record.position - sphere.position) / sphere.radius;
+    Vec3 out_normal = (hit_record.position - sphere.position.xyz) / sphere.radius;
     hit_record.set_face_normal(ray_direction, out_normal);
 
     ReportHit(root, 0, hit_record);

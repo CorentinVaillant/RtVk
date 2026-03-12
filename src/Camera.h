@@ -1,6 +1,7 @@
 #pragma once
 
 #include "glm/geometric.hpp"
+#include "renderer/renderer_utils.h"
 #include "types.h"
 
 struct Camera {
@@ -10,20 +11,20 @@ struct Camera {
   float defocusAngle = 0;
   float focusDist = 10;
 
-  glm::vec3 lookFrom{0, 0, -10};
-  glm::vec3 lookAt{0, 0, 0};
-  glm::vec3 vUp{0, 1, 0};
+  glm::vec4 lookFrom{0, 0, -10, 1};
+  glm::vec4 lookAt{0, 0, 0, 1};
+  glm::vec4 vUp{0, 1, 0, 1};
 
   struct CameraRenderInfo {
-    glm::vec3 center;
-    glm::vec3 view_u, view_v;
-    glm::vec3 dt_u, dt_v;                     // differances between two pixel
-    glm::vec3 u,v,w;                            // Camera frame basis
-    glm::vec3 defocus_disk_u, defocus_disk_v; // Defocus disk
-    glm::vec3 viewport_uper_left;
-    glm::vec3 px00_loc;
+    glm::vec4 center;
+    glm::vec4 view_u, view_v;
+    glm::vec4 dt_u, dt_v;                     // differances between two pixel
+    glm::vec4 u, v, w;                        // Camera frame basis
+    glm::vec4 defocus_disk_u, defocus_disk_v; // Defocus disk
+    glm::vec4 viewport_uper_left;
+    glm::vec4 px00_loc;
 
-    glm::vec3 defocus_disk_sample() const {
+    glm::vec4 defocus_disk_sample(glm::vec4 center) const {
       glm::vec2 p = random_in_unit_disk();
       return center + (p.x * defocus_disk_u) + (p.y * defocus_disk_v);
     }
@@ -39,9 +40,13 @@ struct Camera {
     float view_heigth = 2 * h * focusDist;
     float view_width = view_heigth * aspect_ratio;
 
-    result.w = glm::normalize(lookFrom - lookAt);
-    result.u = glm::normalize(glm::cross(vUp, result.w));
-    result.v = glm::cross(result.w, result.u);
+    glm::vec3 w = glm::normalize(xyz(lookFrom - lookAt));
+    glm::vec3 u = glm::normalize(glm::cross(xyz(vUp), w));
+    glm::vec3 v = glm::cross(w, u);
+
+    result.w = {w, 1};
+    result.u = {u, 1};
+    result.v = {v, 1};
 
     result.view_u = view_width * result.u;
     result.view_v = view_heigth * result.v;
@@ -53,16 +58,12 @@ struct Camera {
     result.defocus_disk_u = result.u * defocus_rad;
     result.defocus_disk_v = result.v * defocus_rad;
 
-    result.viewport_uper_left =
-        lookFrom - (focusDist * result.w) - result.view_u / 2.f - result.view_v / 2.f;
+    result.viewport_uper_left = lookFrom - (focusDist * result.w) -
+                                result.view_u / 2.f - result.view_v / 2.f;
 
     result.px00_loc =
-        result.viewport_uper_left + 0.5f * (result.dt_u + result.dt_u);
+        result.viewport_uper_left + 0.5f * (result.dt_u + result.dt_v);
 
     return result;
-  }
-
-  glm::vec3 get_view_direction() const {
-    return glm::normalize(lookAt - lookFrom);
   }
 };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "graphics/utils.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"
 
@@ -73,6 +74,7 @@ public:
   void write(size_t count, const T *data) {
     memcpy(_allocInfo.pMappedData, reinterpret_cast<const uint8_t *>(data),
            count * sizeof(T));
+    vmaFlushAllocation(_ctx_allocator, _alloc, 0, count * sizeof(T));
   }
 
   void write(size_t offset, size_t count, const T *data) {
@@ -80,6 +82,16 @@ public:
 
     memcpy(dst + offset * sizeof(T), reinterpret_cast<const uint8_t *>(data),
            count * sizeof(T));
+    vmaFlushAllocation(_ctx_allocator, _alloc, offset, count * sizeof(T));
+  }
+
+  void write_into_descriptor(DescriptorWriter &writter, uint32_t binding,
+                             uint32_t count, uint32_t offset,
+                             VkDescriptorType descr_type,
+                             void *pNext = nullptr) const {
+                              
+    writter.write_buffer(binding, _buffer, count * sizeof(T),
+                         offset * sizeof(T), descr_type, pNext);
   }
 
   void write(std::span<T> data) { write(data.size(), data.data()); }

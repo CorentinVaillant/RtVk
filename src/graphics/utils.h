@@ -179,7 +179,8 @@ public:
   void write_image(uint32_t binding, VkImageView view, VkSampler sampler,
                    VkImageLayout layout, VkDescriptorType descriptor_type);
   void write_buffer(uint32_t binding, VkBuffer buffer, size_t size,
-                    size_t offset, VkDescriptorType descriptor_type, void* pNext = nullptr);
+                    size_t offset, VkDescriptorType descriptor_type,
+                    void *pNext = nullptr);
 
   void clear();
   void update_set(VkDevice device, VkDescriptorSet set);

@@ -1,6 +1,7 @@
 #include "GPURenderer.h"
 
 #include <volk.h>
+#include <vulkan/vulkan_core.h>
 
 #include "graphics/Image.h"
 #include "graphics/pipelines.h"
@@ -8,6 +9,7 @@
 #include "graphics/utils.h"
 #include "graphics/vulkan_context.h"
 
+#include "hittables/Sphere.h"
 #include "shaders/simple_rt.slang.h"
 
 GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
@@ -16,21 +18,19 @@ GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
 
 // -- Methods --
 
-RendererPushCst GPURenderer::get_push_cst(const Scene &scene) {
-  auto render_info = scene.camera.get_render_info(_imgBuffer.get_width(),
-                                                  _imgBuffer.get_height());
-
+RendererPushCst GPURenderer::get_push_cst(const Scene &scene) const {
   return RendererPushCst{
+      ._cam = scene.camera,
+      ._lightDir = glm::vec4(1, 0, 0, 0),
       ._renderWidth = static_cast<float>(_imgBuffer.get_width()),
       ._renderHeight = static_cast<float>(_imgBuffer.get_height()),
-      ._focalLength = scene.camera.focusDist,
-      ._frameHeight = 1.f, // ?
-      ._cameraDir = glm::vec4(render_info.w, 1.f),
-      ._cameraUp = glm::vec4(render_info.v, 1.f),
-      ._cameraRight = glm::vec4(render_info.u, 1.f),
-      ._cameraPosition = glm::vec4(render_info.center, 1.f),
-      ._lightDir = glm::vec4(1, 0, 0, 0),
   };
+}
+
+RendererUniforms GPURenderer::get_uniform(const Scene &scene) const {
+  return RendererUniforms{._camRenderInfo = scene.camera.get_render_info(
+                              static_cast<float>(_imgBuffer.get_width()),
+                              static_cast<float>(_imgBuffer.get_height()))};
 }
 
 // -- Statics
@@ -41,7 +41,7 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   pipeline_descr.add_binding(0, StorageImage, Raygen)
       .add_binding(1, AccelerationStruct, Raygen)
       .add_binding(2, UniformBuffer, Raygen)
-      .add_binding(3, StorageBuffer, {Intersection, ClosestHit});
+      .add_binding(3, StorageBuffer, {Raygen,Intersection, ClosestHit}); //! remove Raygen
 
   pipeline_descr.set_push_cst(ALL_RT_STAGE, 0, sizeof(RendererPushCst));
 
@@ -118,19 +118,29 @@ void GPURenderer::render(const Scene &scene) {
                    VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                    General);
 
-  auto primitive_buffers = scene._accStruct->upload_to_buffers(_ctx);
+  Buffer<RendererUniforms> uniform_buffer = Buffer<RendererUniforms>(
+      _ctx, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+  auto uniform = get_uniform(scene);
+  uniform_buffer.write(1, &uniform);
+
+  std::vector<Buffer<>> primitive_buffers = scene._accStruct->upload_to_buffers(_ctx); // ! Probably probleme here > buffer in shader is size 0
 
   DescriptorWriter writter;
   result_img.write(writter, 0, _pipeline.get_sampler(), StorageImage);
 
   auto acc_write_descr_alloc = tlas.get_write_descr_alloc();
-  writter.write_buffer(1, tlas.get_buffer()._buffer, 1, 0,
-                       VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-                       &acc_write_descr_alloc);
+  tlas.get_buffer().write_into_descriptor(
+      writter, 1, 1, 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+      &acc_write_descr_alloc);
+
+  uniform_buffer.write_into_descriptor(writter, 2, 1, 0,
+                                       VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
   for (auto &buffer : primitive_buffers) { // ! Hardcoded for now
-    writter.write_buffer(3, buffer._buffer, 1, 0,
-                         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
+    buffer.write_into_descriptor(writter, 3, 2 * sizeof(Sphere) , 0,
+                                 VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
   }
 
   writter.update_set(_ctx._device, *descr_set);

@@ -123,20 +123,23 @@ public:
     std::vector<Buffer<>> result;
     if (_objects.empty()) {
       result.emplace_back(ctx, 0, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                          VMA_MEMORY_USAGE_CPU_TO_GPU);
+                          VMA_MEMORY_USAGE_CPU_TO_GPU); // Dummy buffer
       return result;
     }
 
     uint32_t object_size = _objects[0].get_in_buffer_size();
-    Buffer<> result_buffer(ctx, object_size * _objects.size(),
-                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                           VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    result.emplace_back(ctx, object_size * _objects.size(),
+                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                        VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    auto &result_buffer = result[0];
+
     uint8_t curr_buffer_index = 0;
 
     for (const T &obj : _objects)
       curr_buffer_index = obj.write_in_buffer(result_buffer, curr_buffer_index);
 
-    result.emplace_back(std::move(result_buffer));
     return result;
   }
 

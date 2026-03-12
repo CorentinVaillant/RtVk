@@ -240,7 +240,8 @@ void DescriptorWriter::write_image(uint32_t binding, VkImageView view,
 }
 void DescriptorWriter::write_buffer(uint32_t binding, VkBuffer buffer,
                                     size_t size, size_t offset,
-                                    VkDescriptorType descriptor_type, void* pNext /* = nullptr */) {
+                                    VkDescriptorType descriptor_type,
+                                    void *pNext /* = nullptr */) {
 
   VkDescriptorBufferInfo &info =
       _buffer_infos.emplace_back(VkDescriptorBufferInfo{

@@ -6,14 +6,20 @@
 
 class Sphere : public IHittable {
 public:
-  Sphere(glm::vec3 center, float radius) : _center(center), _radius(radius) {}
+  struct SphereGpu {
+    glm::vec4 _center;
+    float _radius;
+  };
+
+  Sphere(glm::vec3 center, float radius)
+      : _center(center, 1), _radius(radius) {}
 
   ~Sphere() {}
 
   bool hit(Ray r, Interval ray_t, HitRecord *rec) const override {
     // Fancy quadratic formula
 
-    glm::vec3 oc = _center - r.origin;
+    glm::vec3 oc = xyz(_center) - r.origin;
     float a = lenght_sq(r.direction);
     float h = dot(r.direction, oc);
     float c = lenght_sq(oc) - _radius * _radius;
@@ -35,7 +41,7 @@ public:
     rec->t = root;
     rec->p = r.at(root);
 
-    glm::vec3 out_normal = (rec->p - _center) / _radius;
+    glm::vec3 out_normal = (rec->p - xyz(_center)) / _radius;
     rec->set_face_normal(r.direction, out_normal);
 
     return true;
@@ -48,13 +54,14 @@ public:
   /// Should be identical for each objects of the same types
   uint32_t get_in_buffer_size() const override { return sizeof(Sphere); }
   // Should return the next write address
-  uint32_t write_in_buffer(Buffer<uint8_t> &buffer,
-                           uint32_t index) const override {
-    buffer.write(index, sizeof(Sphere), reinterpret_cast<const uint8_t *>(this));
+  uint32_t write_in_buffer(Buffer<> &buffer, uint32_t index) const override {
+    SphereGpu gpu_instance = {_center, _radius};
+    buffer.write(index, sizeof(Sphere),
+                 reinterpret_cast<const uint8_t *>(&gpu_instance));
     return index + sizeof(Sphere);
   };
 
 private:
-  glm::vec3 _center;
+  glm::vec4 _center;
   float _radius;
 };

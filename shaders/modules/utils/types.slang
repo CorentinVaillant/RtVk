@@ -1,5 +1,12 @@
 implementing utils;
 
+// -- Constants -- //
+
+static constexpr float M_PI_F = 3.14159265358979323846;
+static constexpr float M_2_PI_F = 2 * M_PI_F;
+
+// -- Types --
+
 public typealias Mat2 = matrix<float, 2, 2>;
 public typealias Mat3 = matrix<float, 3, 3>;
 public typealias Mat4 = matrix<float, 4, 4>;
@@ -77,6 +84,8 @@ public Complexe pow_u(Complexe c, uint p)
 
     return acc;
 }
+
+// -- Common functions -- //
 
 public bool contains_open(float min, float max, float t)
 {

@@ -39,7 +39,7 @@ int main() {
 
     LOG(1, "Running ray tracer...");
     std::vector<Sphere> objects = {Sphere{glm::vec3(-5.05, 0, 0), 5.},
-                                   Sphere{glm::vec3(5.05, 0, 0), 5.}};
+                                   Sphere{glm::vec3(+5.05, 0, 0), 5.}};
 
     Scene scene{Camera(),
                 std::make_unique<HittableVector<Sphere>>(std::move(objects))};

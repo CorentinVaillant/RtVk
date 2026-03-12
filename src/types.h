@@ -92,7 +92,6 @@ constexpr bool THROW_ON_MACRO_ERR = true;
     }                                                                          \
   } while (0)
 
-
 // -- Common templates --
 
 template <typename D, typename T>

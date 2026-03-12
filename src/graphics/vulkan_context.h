@@ -80,7 +80,7 @@ private:
   VkCommandPool _immediateCmdPool;
   VkCommandBuffer _immediateCmd;
 
-  VkExtent2D _windowExtent = {1080, 720};
+  VkExtent2D _windowExtent = {1920, 1080};
 
   // Swapchain
   VkSwapchainKHR _swapchain;

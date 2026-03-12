@@ -109,3 +109,8 @@ inline constexpr BBox BBOX_UNIVERSE = {INTERVAL_REELS, INTERVAL_REELS,
                                        INTERVAL_REELS};
 inline constexpr BBox BBOX_EMPTY = {INTERVAL_EMPTY, INTERVAL_EMPTY,
                                     INTERVAL_EMPTY};
+
+
+// -- Vectors utils 
+
+using glm::xyz;

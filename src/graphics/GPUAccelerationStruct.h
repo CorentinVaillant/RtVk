@@ -281,11 +281,12 @@ public:
   }
 
 private:
-  static constexpr VkTransformMatrixKHR IDENTITY_TRANSFORM = {
-      1, 0, 0, 0, //
-      0, 1, 0, 0, //
-      0, 0, 1, 0, //
-  };
+  static constexpr VkTransformMatrixKHR IDENTITY_TRANSFORM =
+      VkTransformMatrixKHR{.matrix = {
+                               {1, 0, 0, 0},
+                               {0, 1, 0, 0},
+                               {0, 0, 1, 0},
+                           }};
 
   // -- Attributs
 private:

@@ -4,7 +4,6 @@
 #include "ImageBuffer.h"
 #include "Renderer.h"
 #include "hittables/Hittable.h"
-#include "types.h"
 
 #include "Scene.h"
 
@@ -48,8 +47,9 @@ protected:
                              j_f * _camRenderInfo.dt_v;
 
     glm::vec3 ray_origin = cam.defocusAngle <= 0
-                               ? _camRenderInfo.center
-                               : _camRenderInfo.defocus_disk_sample();
+                               ? cam.lookFrom
+                               : _camRenderInfo.defocus_disk_sample(cam.lookFrom);
+                               
     glm::vec3 ray_dir = pixel_sample - ray_origin;
 
     return {ray_origin, ray_dir};
