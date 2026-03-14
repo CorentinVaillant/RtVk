@@ -2,6 +2,7 @@
 
 // std
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <concepts>
 #include <cstddef>
@@ -12,6 +13,7 @@
 #include <optional>
 #include <random>
 #include <span>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -178,3 +180,13 @@ inline glm::vec2 random_in_unit_disk() {
 
   return ro * glm::vec2(std::cos(theta), std::sin(theta));
 }
+
+// -- stl using --
+
+using TimePoint = std::chrono::steady_clock::time_point;
+using std::chrono::duration_cast;
+using std::chrono::steady_clock;
+using Microsecond = std::chrono::microseconds;
+using std::chrono::duration;
+
+using std::this_thread::sleep_for;

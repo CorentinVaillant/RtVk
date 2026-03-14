@@ -109,17 +109,18 @@ public:
   }
 
   Tlas get_gpu_struct(VulkanContext &ctx) const override {
-    std::vector<VkAabbPositionsKHR> aabbs;
-    for (auto &obj : _objects)
-      aabbs.push_back(obj.get_bbox().to_vk());
-
     std::vector<Blas> blas_vec;
-    blas_vec.emplace_back(ctx, aabbs);
+    for (auto &obj : _objects) {
+      std::array<VkAabbPositionsKHR,1> aabbs = {obj.get_bbox().to_vk()};
+      Blas blas(ctx, aabbs);
+      blas_vec.emplace_back(std::move(blas));
+    }
 
     return Tlas(ctx, std::move(blas_vec));
   }
 
   std::vector<Buffer<>> upload_to_buffers(VulkanContext &ctx) const override {
+
     std::vector<Buffer<>> result;
     if (_objects.empty()) {
       result.emplace_back(ctx, 0, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,

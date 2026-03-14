@@ -11,16 +11,6 @@ public struct Camera
     public Vec4 lookFrom = Vec4(0, 0, -10,1);
     public Vec4 lookAt = Vec4(0, 0, 0,1);
     public Vec4 vUp = Vec4(0, 1, 0,1);
-
-    public void debug_display() {
-        printf("-- aspectRatio = %f", aspectRatio);
-        printf("-- vFov = %f", vFov);
-        printf("-- defocusAngle = %f", defocusAngle);
-        printf("-- focusDist = %f", focusDist);
-        printf("-- lookFrom = Vec4(%f, %f, %f, %f)", lookFrom.x, lookFrom.y, lookFrom.z, lookFrom.w);
-        printf("-- lookAt = Vec4(%f, %f, %f, %f)", lookAt.x, lookAt.y, lookAt.z, lookAt.w);
-        printf("-- vUp = Vec4(%f, %f, %f, %f)", vUp.x, vUp.y, vUp.z, vUp.w);
-    }
 };
 
 public struct CameraRenderInfo

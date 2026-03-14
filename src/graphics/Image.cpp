@@ -8,7 +8,8 @@
 Image::Image(VulkanContext &ctx, VkExtent3D size, ImgFormat format,
              VkImageUsageFlags usage, ImgLayout layout,
              bool mipmapped /* = false */)
-    : _extent(size), _format(format), _layout(layout), _device(ctx._device) {
+    : _allocator(ctx._memAllocator), _extent(size), _format(format),
+      _layout(layout), _device(ctx._device) {
 
   VkImageCreateInfo img_create_info =
       create_image_create_info(usage, mipmapped);

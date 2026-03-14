@@ -41,7 +41,7 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   pipeline_descr.add_binding(0, StorageImage, Raygen)
       .add_binding(1, AccelerationStruct, Raygen)
       .add_binding(2, UniformBuffer, Raygen)
-      .add_binding(3, StorageBuffer, {Raygen,Intersection, ClosestHit}); //! remove Raygen
+      .add_binding(3, StorageBuffer, {Intersection, ClosestHit});
 
   pipeline_descr.set_push_cst(ALL_RT_STAGE, 0, sizeof(RendererPushCst));
 
@@ -124,7 +124,8 @@ void GPURenderer::render(const Scene &scene) {
   auto uniform = get_uniform(scene);
   uniform_buffer.write(1, &uniform);
 
-  std::vector<Buffer<>> primitive_buffers = scene._accStruct->upload_to_buffers(_ctx); // ! Probably probleme here > buffer in shader is size 0
+  std::vector<Buffer<>> primitive_buffers =
+      scene._accStruct->upload_to_buffers(_ctx);
 
   DescriptorWriter writter;
   result_img.write(writter, 0, _pipeline.get_sampler(), StorageImage);
@@ -139,7 +140,7 @@ void GPURenderer::render(const Scene &scene) {
 
   for (auto &buffer : primitive_buffers) { // ! Hardcoded for now
 
-    buffer.write_into_descriptor(writter, 3, 2 * sizeof(Sphere) , 0,
+    buffer.write_into_descriptor(writter, 3, 2 * sizeof(Sphere), 0,
                                  VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
   }
 

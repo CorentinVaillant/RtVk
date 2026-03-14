@@ -100,7 +100,7 @@ void VulkanContext::immediate_submit(ImediatFunc &&func) {
   };
 
   VK_CHECK(vkQueueSubmit2(_graphicQueue, 1, &submit_info, _immediateFence));
-  VK_CHECK(vkWaitForFences(_device, 1, &_immediateFence, VK_TRUE, 999'999'999));
+  VK_CHECK(vkWaitForFences(_device, 1, &_immediateFence, VK_TRUE, UINT64_MAX));
 }
 
 void VulkanContext::draw(Image &img) {
@@ -175,10 +175,11 @@ void VulkanContext::draw(Image &img) {
       .commandBufferCount = 1,
       .pCommandBuffers = &cmd,
       .signalSemaphoreCount = 1,
-      .pSignalSemaphores = &_renderFinished,
+      .pSignalSemaphores = &_renderFinished[image_index],
   };
 
-  VK_CHECK(vkQueueSubmit(_graphicQueue, 1, &sumbit_info, _inFlightFence));
+  VK_CHECK(
+      vkQueueSubmit(_graphicQueue, 1, &sumbit_info, _inFlightFence));
 
   // Present
 
@@ -188,7 +189,7 @@ void VulkanContext::draw(Image &img) {
       .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
       .pNext = nullptr,
       .waitSemaphoreCount = 1,
-      .pWaitSemaphores = &_renderFinished,
+      .pWaitSemaphores = &_renderFinished[image_index],
       .swapchainCount = 1,
       .pSwapchains = &_swapchain,
       .pImageIndices = &image_index,
@@ -420,7 +421,9 @@ void VulkanContext::create_swapchain() {
 
   VkSemaphoreCreateInfo semInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
   vkCreateSemaphore(_device, &semInfo, nullptr, &_imageAvailable);
-  vkCreateSemaphore(_device, &semInfo, nullptr, &_renderFinished);
+  _renderFinished.resize(_swapchainImages.size());
+  for (auto &semaphores : _renderFinished)
+    vkCreateSemaphore(_device, &semInfo, nullptr, &semaphores);
 
   VkFenceCreateInfo fenceInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
@@ -431,7 +434,9 @@ void VulkanContext::create_swapchain() {
     vkDestroyFence(_device, _inFlightFence, nullptr);
 
     vkDestroySemaphore(_device, _imageAvailable, nullptr);
-    vkDestroySemaphore(_device, _renderFinished, nullptr);
+    for (auto semaphores : _renderFinished)
+      vkDestroySemaphore(_device, semaphores, nullptr);
+    _renderFinished.clear();
 
     destroy_swapchain();
   });

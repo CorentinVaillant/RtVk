@@ -80,17 +80,17 @@ private:
   VkCommandPool _immediateCmdPool;
   VkCommandBuffer _immediateCmd;
 
-  VkExtent2D _windowExtent = {1920, 1080};
+  VkExtent2D _windowExtent = {1080, 720};
 
   // Swapchain
   VkSwapchainKHR _swapchain;
   std::vector<VkImage> _swapchainImages;
   std::vector<VkImageView> _swapchainImageViews;
 
-  VkFormat _swapchainFormat;
+  VkFormat _swapchainFormat = VK_FORMAT_R8G8B8A8_UNORM;
   VkExtent2D _swapchainExtent;
 
   VkSemaphore _imageAvailable;
-  VkSemaphore _renderFinished;
+  std::vector<VkSemaphore> _renderFinished;
   VkFence _inFlightFence; // todo > rename
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "graphics/utils.h"
+#include "graphics/vma_usage.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"
 #include <cstddef>
@@ -55,8 +56,8 @@ public:
   
 
   ~Image() {
+    vmaDestroyImage(_allocator, _vkImage, _allocation);
     vkDestroyImageView(_device, _view, nullptr);
-    vkDestroyImage(_device, _vkImage, nullptr);
   }
 
   // -- Getters --
@@ -85,6 +86,7 @@ public:
   VkImage _vkImage;
   VkImageView _view;
   VmaAllocation _allocation;
+  VmaAllocator _allocator;
   VkExtent3D _extent;
   ImgFormat _format;
   ImgLayout _layout;

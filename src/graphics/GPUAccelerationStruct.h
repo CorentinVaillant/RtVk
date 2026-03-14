@@ -111,6 +111,8 @@ public:
   }
 
   ~Blas() {
+    if(_ctxDevice == VK_NULL_HANDLE || _blas == VK_NULL_HANDLE)
+        return;
     vkDestroyAccelerationStructureKHR(_ctxDevice, _blas, nullptr);
     _blas = VK_NULL_HANDLE;
   }

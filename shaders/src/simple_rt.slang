@@ -57,12 +57,6 @@ struct RayPayload
     Vec4 color;
 };
 
-struct Sphere
-{
-    Vec4 position;
-    float radius;
-};
-
 [[vk::binding(0, 0)]]
 uniform RWTexture2D resultTexture;
 [[vk::binding(1, 0)]]
@@ -81,6 +75,11 @@ void rayGen()
     uint2 imageSize;
     resultTexture.GetDimensions(imageSize.x, imageSize.y);
     Vec2 seed = Vec2(threadIdx * imageSize);
+
+    if (threadIdx.x + threadIdx.y == 0)
+    {
+        printf("Hello world !\n");
+    }
 
     if (threadIdx.x >= imageSize.x || threadIdx.y >= imageSize.y)
         return;
@@ -106,6 +105,12 @@ void miss(inout RayPayload payload)
 }
 
 // -- Intersection part --
+
+struct Sphere
+{
+    Vec4 position;
+    float radius;
+};
 
 [[vk::binding(3, 0)]]
 uniform StructuredBuffer<Sphere> primitiveBuffer;
