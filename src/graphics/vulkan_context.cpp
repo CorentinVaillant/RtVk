@@ -178,8 +178,7 @@ void VulkanContext::draw(Image &img) {
       .pSignalSemaphores = &_renderFinished[image_index],
   };
 
-  VK_CHECK(
-      vkQueueSubmit(_graphicQueue, 1, &sumbit_info, _inFlightFence));
+  VK_CHECK(vkQueueSubmit(_graphicQueue, 1, &sumbit_info, _inFlightFence));
 
   // Present
 
@@ -285,6 +284,9 @@ void VulkanContext::init_vulkan(const char *app_name) {
            selector_ret.error().message());
 
   _physicalDevice = selector_ret.value().physical_device;
+
+  // getting _physicalDeviceProperties
+  vkGetPhysicalDeviceProperties2(_physicalDevice, &_physicalDeviceProperties);
 
   selector_ret.value().enable_extensions_if_present(REQUIRED_DEVICE_EXTENSIONS);
   LOG(2, "physical device init.");

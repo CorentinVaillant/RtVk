@@ -15,6 +15,7 @@
 #include <span>
 #include <thread>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 // glm
@@ -87,6 +88,7 @@ constexpr bool THROW_ON_MACRO_ERR = true;
 #define VK_CHECK(x)                                                            \
   do {                                                                         \
     VkResult err = x;                                                          \
+                                                                               \
     if (err) {                                                                 \
       LOGERR("Detected Vulkan error: \"{}\" -> {} ", #x,                       \
              string_VkResult(err));                                            \

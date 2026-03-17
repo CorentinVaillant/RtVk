@@ -11,7 +11,7 @@ struct Camera {
   float defocusAngle = 0;
   float focusDist = 10;
 
-  glm::vec4 lookFrom{0, 0, -10, 1};
+  glm::vec4 lookFrom{0, 5, -5, 1};
   glm::vec4 lookAt{0, 0, 0, 1};
   glm::vec4 vUp{0, 1, 0, 1};
 

@@ -2,6 +2,7 @@
 
 #include "graphics/Buffer.h"
 #include "graphics/GPUAccelerationStruct.h"
+#include "graphics/utils.h"
 #include "graphics/vma_usage.h"
 #include "graphics/vulkan_context.h"
 
@@ -24,23 +25,35 @@ struct HitRecord {
   }
 };
 
+struct HittableInfo {
+  const uint8_t *gpu_instance;
+  uint32_t binding;
+  uint32_t obj_size, obj_offset;
+};
+
 class IHittable {
 public:
   virtual bool hit(Ray r, Interval ray_t, HitRecord *records) const = 0;
   virtual BBox get_bbox() const = 0;
 
-  /// Should return the size taken by the object inside a Vulkan Buffer.
-  /// Should be identical for each objects of the same types
-  virtual uint32_t get_in_buffer_size() const = 0;
-  // Should return the next write address
-  virtual uint32_t write_in_buffer(Buffer<uint8_t> &buffer,
-                                   uint32_t index) const = 0;
+  virtual Blas get_blas(VulkanContext &ctx) const {
+
+    VkAabbPositionsKHR aabb = {get_bbox().to_vk()};
+    return Blas(ctx, {&aabb, 1});
+  }
+
+  virtual HittableInfo gpu_info() const = 0;
 
   virtual ~IHittable() = default;
 };
 
 template <typename T>
 concept Hittable = std::is_base_of_v<IHittable, T>;
+
+struct UploadedAccStruct {
+  Buffer<> primitive_buffers;
+  Tlas tlas;
+};
 
 class IAccStruct {
 public:
@@ -51,8 +64,8 @@ public:
   virtual std::optional<const IHittable *> get_hitted(uint32_t index) const = 0;
 
   // vulkan
-  virtual Tlas get_gpu_struct(VulkanContext &ctx) const = 0;
-  virtual std::vector<Buffer<>> upload_to_buffers(VulkanContext &ctx) const = 0;
+  virtual UploadedAccStruct upload_to_gpu(VulkanContext &ctx,
+                                          DescriptorWriter &writter) const = 0;
 };
 
 template <Hittable T> class HittableVector : public IAccStruct {
@@ -108,40 +121,57 @@ public:
                : std::nullopt;
   }
 
-  Tlas get_gpu_struct(VulkanContext &ctx) const override {
+  UploadedAccStruct upload_to_gpu(VulkanContext &ctx,
+                                  DescriptorWriter &writter) const override {
     std::vector<Blas> blas_vec;
-    for (auto &obj : _objects) {
-      std::array<VkAabbPositionsKHR,1> aabbs = {obj.get_bbox().to_vk()};
-      Blas blas(ctx, aabbs);
-      blas_vec.emplace_back(std::move(blas));
+    for (auto &obj : _objects)
+      blas_vec.emplace_back(obj.get_blas(ctx));
+
+    Tlas tlas(ctx, std::move(blas_vec));
+
+    // Upload in buffer
+
+    size_t total_size = 0;
+    for (const T &obj : _objects) {
+      total_size += obj.gpu_info().obj_size;
+    }
+    Buffer<> buffer(ctx, total_size,
+                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                    VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    std::vector<HittableInfo> infos;
+    infos.reserve(_objects.size());
+    // Write in descriptor
+    struct BindingWritterInfo {
+      uint32_t total_size;
+    };
+    std::unordered_map<uint32_t, BindingWritterInfo> binding_map;
+
+    size_t current_offset = 0;
+    for (const T &obj : _objects) {
+      const HittableInfo info = obj.gpu_info();
+      buffer.write(current_offset, info.obj_size, info.gpu_instance);
+      infos.push_back(info);
+
+      if (binding_map.contains(info.binding)) {
+        binding_map[info.binding].total_size += info.obj_size;
+      } else {
+        binding_map[info.binding] = BindingWritterInfo{info.obj_size};
+      }
+
+      current_offset += info.obj_size;
     }
 
-    return Tlas(ctx, std::move(blas_vec));
-  }
-
-  std::vector<Buffer<>> upload_to_buffers(VulkanContext &ctx) const override {
-
-    std::vector<Buffer<>> result;
-    if (_objects.empty()) {
-      result.emplace_back(ctx, 0, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                          VMA_MEMORY_USAGE_CPU_TO_GPU); // Dummy buffer
-      return result;
+    for (const auto &key_val : binding_map) {
+      const auto &[binding, info] = key_val;
+      buffer.write_into_descriptor(writter, binding, info.total_size, 0,
+                                   VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
     }
 
-    uint32_t object_size = _objects[0].get_in_buffer_size();
-
-    result.emplace_back(ctx, object_size * _objects.size(),
-                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                        VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    auto &result_buffer = result[0];
-
-    uint8_t curr_buffer_index = 0;
-
-    for (const T &obj : _objects)
-      curr_buffer_index = obj.write_in_buffer(result_buffer, curr_buffer_index);
-
-    return result;
+    return UploadedAccStruct{
+        .primitive_buffers = std::move(buffer),
+        .tlas = std::move(tlas),
+    };
   }
 
 private:

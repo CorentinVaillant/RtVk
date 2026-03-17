@@ -114,9 +114,10 @@ void test_acceleration_struct(VulkanContext &ctx) {
   }
 
   HittableVector vec(std::move(vec_sphere));
+  DescriptorWriter writter;
 
   [[maybe_unused]]
-  auto tlas = vec.get_gpu_struct(ctx);
+  auto data = vec.upload_to_gpu(ctx, writter);
 
   LOGOK("acceleration_struct");
 }

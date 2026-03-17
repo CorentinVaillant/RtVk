@@ -110,15 +110,8 @@ RtPipeline::RtPipeline(VulkanContext &ctx, PipelineDescriptor &descriptor,
                                  &create_info, nullptr, &_rtPipeline);
 
   // Shader binding table creation
-  VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_props{
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
-
-  VkPhysicalDeviceProperties2 gpu_properties{
-      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-      .pNext = &rt_props,
-  };
-
-  vkGetPhysicalDeviceProperties2(ctx._physicalDevice, &gpu_properties);
+  const VkPhysicalDeviceRayTracingPipelinePropertiesKHR &rt_props =
+      ctx.get_physical_device_rt_pipeline_properties();
 
   uint32_t handle_size = rt_props.shaderGroupHandleSize;
   uint32_t handle_aligment = rt_props.shaderGroupHandleAlignment;
@@ -128,14 +121,15 @@ RtPipeline::RtPipeline(VulkanContext &ctx, PipelineDescriptor &descriptor,
 
   uint32_t stride = align_up(handle_size, handle_aligment);
 
-  uint32_t total_handle_size = handle_size * 3;
+  uint32_t total_handle_size = handle_size * group_count;
   std::vector<uint8_t> handles(total_handle_size);
-  vkGetRayTracingShaderGroupHandlesKHR(_ctxDevice, _rtPipeline, 0, 3,
+  vkGetRayTracingShaderGroupHandlesKHR(_ctxDevice, _rtPipeline, 0, group_count,
                                        total_handle_size, handles.data());
 
   VkDeviceSize raygen_size = align_up(stride, base_alignement);
   VkDeviceSize miss_size = align_up(stride, base_alignement);
-  VkDeviceSize hit_size = align_up(stride, base_alignement);
+  VkDeviceSize hit_size = align_up(stride * (group_count - 2),
+                                   base_alignement); // -2 for raygen+miss
   VkDeviceSize sbt_size = raygen_size + miss_size + hit_size;
 
   constexpr VkBufferUsageFlags SBT_BUFFER_USAGE =
@@ -148,8 +142,10 @@ RtPipeline::RtPipeline(VulkanContext &ctx, PipelineDescriptor &descriptor,
 
   _sbtBuffer->write(0, handle_size, handles.data() + 0 * handle_size);
   _sbtBuffer->write(raygen_size, handle_size, handles.data() + 1 * handle_size);
-  _sbtBuffer->write(raygen_size + miss_size, handle_size,
-                    handles.data() + 2 * handle_size);
+  for (uint32_t i = 2; i < group_count; i++) {
+    _sbtBuffer->write(raygen_size + miss_size + (i - 2) * stride, handle_size,
+                      handles.data() + i * handle_size);
+  }
 
   VkDeviceAddress sbt_address = _sbtBuffer->get_device_adresse(_ctxDevice);
 

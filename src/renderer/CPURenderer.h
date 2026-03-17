@@ -17,7 +17,7 @@ public:
   virtual void render(const Scene &scene) override {
     size_t img_width = _imgBuffer.get_width();
     size_t img_height = _imgBuffer.get_height();
-    _camRenderInfo = scene.camera.get_render_info(img_width, img_height);
+    _camRenderInfo = scene._camera.get_render_info(img_width, img_height);
     for (size_t i = 0; i < img_width; i++)
       for (size_t j = 0; j < img_height; j++) {
         _imgBuffer.write_pixel(i, j, post_process(gen_ray(scene, i, j)));
@@ -74,7 +74,7 @@ public:
 
 protected:
   Color gen_ray(const Scene &scene, size_t i, size_t j) const override {
-    Ray ray = get_ray(i, j, scene.camera);
+    Ray ray = get_ray(i, j, scene._camera);
     HitRecord record;
     uint32_t hit_index = scene._accStruct->hit(ray, INTERVAL_REELS, &record);
     Color hit_color;

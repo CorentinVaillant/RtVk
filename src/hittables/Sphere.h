@@ -11,18 +11,17 @@ public:
     float _radius;
   };
 
-  Sphere(glm::vec3 center, float radius)
-      : _center(center, 1), _radius(radius) {}
+  Sphere(glm::vec3 center, float radius) : data{glm::vec4(center, 1), radius} {}
 
   ~Sphere() {}
 
   bool hit(Ray r, Interval ray_t, HitRecord *rec) const override {
     // Fancy quadratic formula
 
-    glm::vec3 oc = xyz(_center) - r.origin;
+    glm::vec3 oc = xyz(data._center) - r.origin;
     float a = lenght_sq(r.direction);
     float h = dot(r.direction, oc);
-    float c = lenght_sq(oc) - _radius * _radius;
+    float c = lenght_sq(oc) - data._radius * data._radius;
 
     float discriminant = h * h - a * c;
     if (discriminant < 0)
@@ -41,27 +40,24 @@ public:
     rec->t = root;
     rec->p = r.at(root);
 
-    glm::vec3 out_normal = (rec->p - xyz(_center)) / _radius;
+    glm::vec3 out_normal = (rec->p - xyz(data._center)) / data._radius;
     rec->set_face_normal(r.direction, out_normal);
 
     return true;
   }
   BBox get_bbox() const override {
-    return BBox(_center - _radius, _center + _radius);
+    return BBox(data._center - data._radius, data._center + data._radius);
   }
 
-  /// Should return the size taken by the object inside a Vulkan Buffer.
-  /// Should be identical for each objects of the same types
-  uint32_t get_in_buffer_size() const override { return sizeof(Sphere); }
-  // Should return the next write address
-  uint32_t write_in_buffer(Buffer<> &buffer, uint32_t index) const override {
-    SphereGpu gpu_instance = {_center, _radius};
-    buffer.write(index, sizeof(Sphere),
-                 reinterpret_cast<const uint8_t *>(&gpu_instance));
-    return index + sizeof(Sphere);
-  };
+  HittableInfo gpu_info() const override {
+    return HittableInfo{
+        .gpu_instance = reinterpret_cast<const uint8_t *>(&data),
+        .binding = 3,
+        .obj_size = 32,
+        .obj_offset = 0,
+    }; // 32 -> std140 alignement
+  }
 
 private:
-  glm::vec4 _center;
-  float _radius;
+  SphereGpu data;
 };

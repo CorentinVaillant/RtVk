@@ -10,6 +10,7 @@ struct Scene {
   // - Backgrouds
   // - Materials
 
-  Camera camera;
+  Camera _camera;
   std::unique_ptr<IAccStruct> _accStruct;
+  float _time;
 };

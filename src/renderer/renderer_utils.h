@@ -55,7 +55,7 @@ struct BBox {
       break;
     default:
 #ifdef NDEBUG
-      LOG(2, "[BBox error] axis is not 0, 1, or 2, return INTERVAL_EMPTY");
+      LOGWARN("(BBox error) axis is not 0, 1, or 2, return INTERVAL_EMPTY");
 #endif
       return INTERVAL_EMPTY;
     }
@@ -86,7 +86,7 @@ struct BBox {
       t_min = std::max(t_min, t0);
       t_max = std::min(t_max, t1);
 
-      if (t_min <= t_max)
+      if (t_min > t_max)
         return false;
     }
 

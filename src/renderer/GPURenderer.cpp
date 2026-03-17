@@ -9,7 +9,7 @@
 #include "graphics/utils.h"
 #include "graphics/vulkan_context.h"
 
-#include "hittables/Sphere.h"
+#include "hittables/Hittable.h"
 #include "shaders/simple_rt.slang.h"
 
 GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
@@ -20,15 +20,16 @@ GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
 
 RendererPushCst GPURenderer::get_push_cst(const Scene &scene) const {
   return RendererPushCst{
-      ._cam = scene.camera,
+      ._cam = scene._camera,
       ._lightDir = glm::vec4(1, 0, 0, 0),
       ._renderWidth = static_cast<float>(_imgBuffer.get_width()),
       ._renderHeight = static_cast<float>(_imgBuffer.get_height()),
+      ._time = scene._time,
   };
 }
 
 RendererUniforms GPURenderer::get_uniform(const Scene &scene) const {
-  return RendererUniforms{._camRenderInfo = scene.camera.get_render_info(
+  return RendererUniforms{._camRenderInfo = scene._camera.get_render_info(
                               static_cast<float>(_imgBuffer.get_width()),
                               static_cast<float>(_imgBuffer.get_height()))};
 }
@@ -39,7 +40,7 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   PipelineDescriptor pipeline_descr;
 
   pipeline_descr.add_binding(0, StorageImage, Raygen)
-      .add_binding(1, AccelerationStruct, Raygen)
+      .add_binding(1, AccelerationStruct, {Raygen, ClosestHit})
       .add_binding(2, UniformBuffer, Raygen)
       .add_binding(3, StorageBuffer, {Intersection, ClosestHit});
 
@@ -55,7 +56,6 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   // Shader groups
   RtPipelineCreateInfos create_info;
   create_info.max_rt_depth = 10;
-  //! hardcoded for now...
   create_info.groups.resize(3);
   create_info.groups[0] = VkRayTracingShaderGroupCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -104,9 +104,6 @@ DescriptorAllocator GPURenderer::create_descr_aloc(VulkanContext &ctx) {
 
 // -- Renderer impl
 void GPURenderer::render(const Scene &scene) {
-
-  Tlas tlas = scene._accStruct->get_gpu_struct(_ctx);
-
   VkDescriptorSetLayout descr_set_layout = _pipeline.get_descr_set_layout();
   Raii_VkDescriptorSet descr_set = _descr_aloc.allocate(descr_set_layout);
 
@@ -124,25 +121,19 @@ void GPURenderer::render(const Scene &scene) {
   auto uniform = get_uniform(scene);
   uniform_buffer.write(1, &uniform);
 
-  std::vector<Buffer<>> primitive_buffers =
-      scene._accStruct->upload_to_buffers(_ctx);
-
   DescriptorWriter writter;
   result_img.write(writter, 0, _pipeline.get_sampler(), StorageImage);
 
-  auto acc_write_descr_alloc = tlas.get_write_descr_alloc();
-  tlas.get_buffer().write_into_descriptor(
+  UploadedAccStruct gpu_acc_struct = scene._accStruct->upload_to_gpu(_ctx, writter);
+
+  auto acc_write_descr_alloc = gpu_acc_struct.tlas.get_write_descr_alloc();
+  gpu_acc_struct.tlas.get_buffer().write_into_descriptor(
       writter, 1, 1, 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
       &acc_write_descr_alloc);
 
   uniform_buffer.write_into_descriptor(writter, 2, 1, 0,
                                        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-  for (auto &buffer : primitive_buffers) { // ! Hardcoded for now
-
-    buffer.write_into_descriptor(writter, 3, 2 * sizeof(Sphere), 0,
-                                 VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-  }
 
   writter.update_set(_ctx._device, *descr_set);
 

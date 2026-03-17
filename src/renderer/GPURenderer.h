@@ -10,7 +10,8 @@
 struct RendererPushCst {
   Camera _cam;
   glm::vec4 _lightDir;
-  float _renderWidth, _renderHeight;
+  float _renderWidth, _renderHeight, _time;
+  uint32_t spp = 32;
 };
 
 struct RendererUniforms {

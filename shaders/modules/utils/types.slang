@@ -3,7 +3,7 @@ implementing utils;
 // -- Constants -- //
 
 static constexpr float M_PI_F = 3.14159265358979323846;
-static constexpr float M_2_PI_F = 2 * M_PI_F;
+static constexpr float M_TWO_PI_F = 2 * M_PI_F;
 
 // -- Types --
 
@@ -15,7 +15,7 @@ public typealias Vec3 = vector<float, 3>;
 public typealias Vec4 = vector<float, 4>;
 public typealias Reel = float;
 
-// -- Complexe -- //
+// -- Complexe
 
 public struct Complexe
 {
@@ -84,6 +84,32 @@ public Complexe pow_u(Complexe c, uint p)
 
     return acc;
 }
+
+// -- ONB (OrthoNormal Base)
+public struct ONB
+{
+    readonly Vec3 u, v, w;
+
+    public property uvw : Mat3
+    {
+        get {
+            return Mat3(u, v, w);
+        }
+    }
+
+    public __init(Vec3 normal)
+    {
+        w = normalize(normal);
+        Vec3 a = (abs(w.x) > 0.9) ? Vec3(0, 1, 0) : Vec3(1, 0, 0);
+        v = normalize(cross(w, a));
+        u = cross(w, v);
+    }
+
+    public Vec3 transform(Vec3 vector)
+    {
+        return mul(vector, uvw);
+    }
+};
 
 // -- Common functions -- //
 

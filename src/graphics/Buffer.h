@@ -30,8 +30,11 @@ public:
         .pQueueFamilyIndices = nullptr, //~
     };
 
+    VmaAllocationCreateFlags flags = (mem_usage == VMA_MEMORY_USAGE_GPU_ONLY)
+                                        ? 0
+                                        : VMA_ALLOCATION_CREATE_MAPPED_BIT;
     VmaAllocationCreateInfo vma_alloc_create_info{
-        .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .flags = flags,
         .usage = mem_usage,
         // ~
     };
@@ -89,7 +92,7 @@ public:
                              uint32_t count, uint32_t offset,
                              VkDescriptorType descr_type,
                              void *pNext = nullptr) const {
-                              
+
     writter.write_buffer(binding, _buffer, count * sizeof(T),
                          offset * sizeof(T), descr_type, pNext);
   }

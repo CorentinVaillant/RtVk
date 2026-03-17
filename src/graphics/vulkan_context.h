@@ -4,9 +4,10 @@
 #include "delqueue.h"
 #include "graphics/utils.h"
 #include "types.h"
-#include <vector>
 #include "vma_usage.h"
+#include <vector>
 #include <volk.h>
+#include <vulkan/vulkan_core.h>
 
 class Image;
 
@@ -29,10 +30,20 @@ public:
   static void stop(int exit_code = 0);
 
   void immediate_submit(ImediatFunc &&func);
-  void draw(Image& img);
+  void draw(Image &img);
 
   // -- getters
-  VkExtent2D get_window_size() const{return _windowExtent;}
+  VkExtent2D get_window_size() const { return _windowExtent; }
+  const VkPhysicalDeviceProperties2 &get_physical_device_properties() const {
+    return _physicalDeviceProperties;
+  }  
+  const VkPhysicalDeviceRayTracingPipelinePropertiesKHR &get_physical_device_rt_pipeline_properties() const {
+    return _physicalDeviceRayTracingPipelineProperties;
+  }
+  const VkPhysicalDeviceAccelerationStructurePropertiesKHR &
+  get_physical_device_acc_struct_properties() const {
+    return _physicalDeviceAccelerationStructureProperties;
+  }
 
 private:
   // -- Methods
@@ -54,7 +65,7 @@ public:
   // SDL
   SDL_Window *_window;
 
-  // -- vulkan
+  // Vulkan
   VkInstance _instance;
   VkDebugUtilsMessengerEXT _debugUtilMsg;
   VkSurfaceKHR _surface;
@@ -93,4 +104,17 @@ private:
   VkSemaphore _imageAvailable;
   std::vector<VkSemaphore> _renderFinished;
   VkFence _inFlightFence; // todo > rename
+
+  // Read only properties
+  VkPhysicalDeviceAccelerationStructurePropertiesKHR
+      _physicalDeviceAccelerationStructureProperties = {
+          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR};
+  VkPhysicalDeviceRayTracingPipelinePropertiesKHR
+      _physicalDeviceRayTracingPipelineProperties = {
+          .sType =
+              VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
+          .pNext = &_physicalDeviceAccelerationStructureProperties};
+  VkPhysicalDeviceProperties2 _physicalDeviceProperties = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+      .pNext = &_physicalDeviceRayTracingPipelineProperties};
 };

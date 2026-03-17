@@ -41,15 +41,19 @@ int main() {
     float runtime_second = float(runtime.count()) / 1e6;
     TimePoint begin = steady_clock::now();
 
-    float pos_x = 100.f * std::cos(runtime_second * 10) * dt;
-    float pos_y = 100.f * std::sin(runtime_second * 10) * dt;
+    float pos_x = 100.f * std::cos(runtime_second) * dt;
+    float pos_y = 100.f * std::sin(runtime_second) * dt;
 
     LOG(5, "Running ray tracer...");
-    std::vector<Sphere> objects = {Sphere{glm::vec3(pos_x, pos_y, 10), 1.},
-                                   Sphere{glm::vec3(2*pos_y, 2*pos_x, 5), 1.}};
+    std::vector<Sphere> objects = {
+        Sphere{glm::vec3(0., 0., 106), 100},
+        Sphere{glm::vec3(2 * pos_y, 2 * pos_x, 3), 2},
+        Sphere{glm::vec3(0.1f * pos_x, 0.1f * pos_y, 3), 1},
+    };
 
     Scene scene{Camera(),
-                std::make_unique<HittableVector<Sphere>>(std::move(objects))};
+                std::make_unique<HittableVector<Sphere>>(std::move(objects)),
+                runtime_second};
 
     if (runned == 0) {
       LOG(1, "Init engine...");

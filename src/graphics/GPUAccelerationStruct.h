@@ -81,24 +81,31 @@ public:
 
     vkCreateAccelerationStructureKHR(_ctxDevice, &create_info, nullptr, &_blas);
 
+    VkDeviceAddress scratch_alignment =
+        ctx.get_physical_device_acc_struct_properties()
+            .minAccelerationStructureScratchOffsetAlignment;
     constexpr VkBufferUsageFlags SCRATCH_BUFFER_USAGE =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    Buffer<uint8_t> scratch_buffer(ctx, size_info.buildScratchSize,
-                                   SCRATCH_BUFFER_USAGE,
-                                   VMA_MEMORY_USAGE_GPU_ONLY);
+    Buffer<uint8_t> scratch_buffer(
+        ctx, size_info.buildScratchSize + scratch_alignment,
+        SCRATCH_BUFFER_USAGE, VMA_MEMORY_USAGE_GPU_ONLY);
 
     build_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
     build_info.dstAccelerationStructure = _blas;
-    build_info.scratchData = {
-        .deviceAddress = scratch_buffer.get_device_adresse(_ctxDevice)};
+
+    VkDeviceAddress scratch_addr =
+        scratch_buffer.get_device_adresse(_ctxDevice);
+    scratch_addr =
+        (scratch_addr + scratch_alignment - 1) & ~(scratch_alignment - 1);
+    build_info.scratchData = {.deviceAddress = scratch_addr};
 
     VkAccelerationStructureBuildRangeInfoKHR range_info{primitive_count, 0, 0,
                                                         0};
     const VkAccelerationStructureBuildRangeInfoKHR *ptr_range_info =
         &range_info;
 
-    ctx.immediate_submit([&build_info, &ptr_range_info](auto cmd) {
+    ctx.immediate_submit([&build_info, &ptr_range_info](auto cmd) { // !HERE
       vkCmdBuildAccelerationStructuresKHR(cmd, 1, &build_info, &ptr_range_info);
     });
   }
@@ -110,9 +117,20 @@ public:
     rval._blas = VK_NULL_HANDLE;
   }
 
+  Blas &operator=(Blas &&rval) {
+    if (this != &rval) {
+      this->_aabbsBuffer = std::move(rval._aabbsBuffer);
+      this->_blasBuffer = std::move(rval._blasBuffer);
+      this->_blas = rval._blas;
+
+      rval._blas = VK_NULL_HANDLE;
+    }
+    return *this;
+  }
+
   ~Blas() {
-    if(_ctxDevice == VK_NULL_HANDLE || _blas == VK_NULL_HANDLE)
-        return;
+    if (_ctxDevice == VK_NULL_HANDLE || _blas == VK_NULL_HANDLE)
+      return;
     vkDestroyAccelerationStructureKHR(_ctxDevice, _blas, nullptr);
     _blas = VK_NULL_HANDLE;
   }
@@ -174,6 +192,7 @@ public:
           .instanceCustomIndex = static_cast<uint32_t>(i), // InstanceId() call
           .mask = 0xff,
           .instanceShaderBindingTableRecordOffset = 0, // hit group 0
+          .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
           .accelerationStructureReference = blas.get_device_addres(),
       });
     }
@@ -247,12 +266,21 @@ public:
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
-    Buffer<uint8_t> scratch(ctx, size_info.buildScratchSize,
-                            SCRATCH_BUFFER_USAGE, VMA_MEMORY_USAGE_GPU_ONLY);
+    VkDeviceAddress scratch_alignment =
+        ctx.get_physical_device_acc_struct_properties()
+            .minAccelerationStructureScratchOffsetAlignment;
+    Buffer<uint8_t> scratch_buffer(
+        ctx, size_info.buildScratchSize + scratch_alignment,
+        SCRATCH_BUFFER_USAGE, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    VkDeviceAddress scratch_addr =
+        scratch_buffer.get_device_adresse(_ctxDevice);
+    scratch_addr =
+        (scratch_addr + scratch_alignment - 1) & ~(scratch_alignment - 1);
 
     build_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
     build_info.dstAccelerationStructure = _tlas;
-    build_info.scratchData = {scratch.get_device_adresse(_ctxDevice)};
+    build_info.scratchData = {scratch_addr};
 
     VkAccelerationStructureBuildRangeInfoKHR range_info{primitive_count, 0, 0,
                                                         0};
@@ -263,8 +291,33 @@ public:
     });
   }
 
+  Tlas(Tlas &&rval)
+      : _ctxDevice(rval._ctxDevice), _blasVec(std::move(rval._blasVec)),
+        _instanceBuffer(std::move(rval._instanceBuffer)),
+        _tlasBuffer(std::move(rval._tlasBuffer)), _tlas(rval._tlas) {
+    rval._tlas = VK_NULL_HANDLE;
+    rval._ctxDevice = VK_NULL_HANDLE;
+  }
+
+  Tlas &operator=(Tlas &&rval) {
+    if (this != &rval) {
+      this->_ctxDevice = rval._ctxDevice;
+      this->_blasVec = std::move(rval._blasVec);
+      this->_instanceBuffer = std::move(rval._instanceBuffer);
+      this->_tlasBuffer = std::move(rval._tlasBuffer);
+      this->_tlas = rval._tlas;
+
+      rval._tlas = VK_NULL_HANDLE;
+      rval._ctxDevice = VK_NULL_HANDLE;
+    }
+    return *this;
+  }
+
   ~Tlas() {
+    if (_ctxDevice == VK_NULL_HANDLE || _tlas == VK_NULL_HANDLE)
+      return;
     vkDestroyAccelerationStructureKHR(_ctxDevice, _tlas, nullptr);
+    _ctxDevice = VK_NULL_HANDLE;
     _tlas = VK_NULL_HANDLE;
   }
 
