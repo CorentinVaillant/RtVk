@@ -51,9 +51,10 @@ int main() {
         Sphere{glm::vec3(0.1f * pos_x, 0.1f * pos_y, 3), 1},
     };
 
-    Scene scene{Camera(),
-                std::make_unique<HittableVector<Sphere>>(std::move(objects)),
-                runtime_second};
+    Scene scene{._camera = Camera(),
+                ._accStruct = std::make_unique<HittableVector<Sphere>>(
+                    std::move(objects)),
+                ._time = runtime_second, };
 
     if (runned == 0) {
       LOG(1, "Init engine...");

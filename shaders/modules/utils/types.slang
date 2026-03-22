@@ -2,8 +2,22 @@ implementing utils;
 
 // -- Constants -- //
 
-static constexpr float M_PI_F = 3.14159265358979323846;
-static constexpr float M_TWO_PI_F = 2 * M_PI_F;
+///@return $ \pi $
+public static constexpr float M_PI_F = 3.14159265358979323846;
+///@return $ 2\pi $
+public static constexpr float M_TWO_PI_F = 2 * M_PI_F;
+///@return $ 3\pi $
+public static constexpr float M_THREE_PI_F = 3 * M_PI_F;
+///@return $ 4\pi $
+public static constexpr float M_FOUR_PI_F = 4 * M_PI_F;
+///@return $ \fract{1}{\pi} $
+public static constexpr float M_1_PI_F = 1 / M_PI_F;
+///@return $ \fract{2}{\pi} $
+public static constexpr float M_2_PI_F = 2 / M_PI_F;
+///@return $ \fract{3}{\pi} $
+public static constexpr float M_3_PI_F = 3 / M_PI_F;
+///@return $ \fract{4}{\pi} $
+public static constexpr float M_4_PI_F = 4 / M_PI_F;
 
 // -- Types --
 
@@ -15,6 +29,7 @@ public typealias Vec3 = vector<float, 3>;
 public typealias Vec4 = vector<float, 4>;
 public typealias Reel = float;
 
+public typealias Color = vector<float, 4>;
 // -- Complexe
 
 public struct Complexe
@@ -88,7 +103,7 @@ public Complexe pow_u(Complexe c, uint p)
 // -- ONB (OrthoNormal Base)
 public struct ONB
 {
-    readonly Vec3 u, v, w;
+    public readonly Vec3 u, v, w;
 
     public property uvw : Mat3
     {
@@ -116,4 +131,41 @@ public struct ONB
 public bool contains_open(float min, float max, float t)
 {
     return min < t && t < max;
+}
+
+public float lenght_sq(Vec3 v) {
+    return dot(v, v);
+}
+
+public float sq(float x)
+{
+    return x * x;
+}
+
+public float cos2theta(const in Vec3 w)
+{
+    return w.z * w.z;
+}
+public float sin2theta(const in Vec3 w)
+{
+    return max(0.f, 1.f - cos2theta(w));
+}
+public float tan2theta(const in Vec3 w)
+{
+    return sin2theta(w) / cos2theta(w);
+}
+public float cos_phi(Vec3 w)
+{
+    let sin_theta = sqrt(sin2theta(w));
+    return sin_theta == 0
+               ? 1
+               : clamp(w.x / sin_theta, -1, 1);
+}
+
+public float sin_phi(Vec3 w)
+{
+    let sin_theta = sqrt(sin2theta(w));
+    return sin_theta == 0
+               ? 0
+               : clamp(w.y / sin_theta, -1, 1);
 }

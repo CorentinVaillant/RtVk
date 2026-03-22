@@ -1,12 +1,14 @@
 // simple_rt.slang
 
 import "../modules/utils";
+import "../modules/rt_utils";
 
 public struct PushedCst
 {
     public Camera camera;
     public Vec4 lightDir;
     public float screenWidth, screenHeight, time;
+    public uint max_depth;
     public uint spp;
 };
 
@@ -38,28 +40,6 @@ public struct RendererUniforms
     }
 };
 
-struct HitAttribut
-{
-    Vec3 position;
-    float time;
-    Vec3 normal;
-    bool front_face;
-
-    [mutating]
-    void set_face_normal(Vec3 ray_dir, Vec3 out_normal)
-    {
-        front_face = dot(ray_dir, out_normal) < 0;
-        normal = front_face ? out_normal : -out_normal;
-    }
-};
-
-struct RayPayload
-{
-    Vec4 color;
-    uint seed;
-    uint depth = 10;
-};
-
 [[vk::binding(0, 0)]]
 uniform RWTexture2D resultTexture;
 [[vk::binding(1, 0)]]
@@ -67,6 +47,9 @@ uniform RaytracingAccelerationStructure scene;
 
 [[vk::binding(2, 0)]]
 uniform ConstantBuffer<RendererUniforms> uni;
+
+[[vk::binding(3, 0)]]
+uniform StructuredBuffer<Brdf> material;
 
 [[vk::push_constant]]
 ConstantBuffer<PushedCst> pushed;
@@ -83,12 +66,14 @@ void rayGen()
         return;
 
     Vec4 result_color = Vec4(0);
-    for (uint s = 0; s < pushed.spp; s++) {
+    for (uint s = 0; s < pushed.spp; s++)
+    {
 
         RayDesc ray = uni.get_ray(seed, pushed.camera.defocusAngle, threadIdx.x, threadIdx.y);
-        
+
         RayPayload payload = {};
         payload.seed = seed;
+        payload.depth = pushed.max_depth;
         TraceRay(scene, RAY_FLAG_NONE, ~0, 0, 0, 0, ray, payload);
 
         result_color += payload.color;
@@ -96,25 +81,45 @@ void rayGen()
     resultTexture[threadIdx.xy] = result_color / float(pushed.spp);
 }
 
-static constexpr float ATTENUATION = 0.9;
+static constexpr float ATTENUATION = 0.5f;
 static constexpr float ROUGHNESS = 0.3f;
 
 [shader("closesthit")]
 void closestHit(inout RayPayload payload, in HitAttribut attr)
 {
     payload.depth--;
-    if (payload.depth == 0)
+    if (payload.depth <= 0)
         return miss(payload);
 
-    let jitter = ONB(attr.normal).transform(random_cosine_hemisphere(payload.seed));
+    RayDesc ray;
+    ray.Origin = WorldRayOrigin();
+    ray.Direction = WorldRayDirection();
+    ray.TMin = 0.0001f;
+    ray.TMax = 10000;
 
-    RayDesc new_ray;
-    new_ray.Direction = (1.f - ROUGHNESS) * reflect(WorldRayDirection(), attr.normal) + ROUGHNESS * jitter;
-    new_ray.Origin = attr.position;
-    new_ray.TMin = 0.001f;
-    new_ray.TMax = 1000.f;
-    TraceRay(scene, RAY_FLAG_NONE, ~0, 0, 0, 0, new_ray, payload);
-    payload.color = Vec4(payload.color.xyz * 0.9, 1);
+    if (attr.material_index >= uint(material.getCount()))
+    {
+        return;
+    }
+
+    let brdf = material[attr.material_index];
+    RayDesc scatter_ray;
+    scatter_ray.Origin = attr.position;
+    scatter_ray.TMin = 0.0001f;
+    scatter_ray.TMax = 10000.f;
+
+    ScatterAttribut scattr;
+    if (!brdf.scatter(ray, attr, payload.seed, scattr))
+    {
+        payload.color += brdf.emmited(ray, attr, Vec2(0));
+        return;
+    }
+
+    scatter_ray.Direction = scattr.out_dir;
+
+    TraceRay(scene, RAY_FLAG_NONE, ~0, 0, 0, 0, scatter_ray, payload);
+    payload.color = payload.color * scattr.attenuation + brdf.emmited(ray, attr, Vec2(0));
+    return;
 }
 
 [shader("miss")]
@@ -131,7 +136,7 @@ struct Sphere
     float radius;
 };
 
-[[vk::binding(3, 0)]]
+[[vk::binding(4, 0)]]
 uniform StructuredBuffer<Sphere> primitiveBuffer;
 
 // -- Sphere
@@ -175,9 +180,9 @@ void sphereIntersection()
     // HIT !
     // HitAttribut hit_record;
     hit_record.time = root;
-    hit_record.position = ray_origin + root * ray_direction;
     Vec3 out_normal = (hit_record.position - sphere.position.xyz) / sphere.radius;
     hit_record.set_face_normal(ray_direction, out_normal);
+    hit_record.material_index = 0;
 
     ReportHit(root, 0, hit_record);
 }

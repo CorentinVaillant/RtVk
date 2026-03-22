@@ -1,10 +1,8 @@
 #pragma once
 
 #include "Camera.h"
-#include "graphics/Buffer.h"
-#include "graphics/vulkan_context.h"
 #include "hittables/Hittable.h"
-#include "types.h"
+#include "renderer/renderer_utils.h"
 
 struct Scene {
   // - Backgrouds
@@ -12,5 +10,6 @@ struct Scene {
 
   Camera _camera;
   std::unique_ptr<IAccStruct> _accStruct;
+  std::vector<Material> _materials = {DEFAULT_MATERIAL};
   float _time;
 };

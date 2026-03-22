@@ -21,7 +21,7 @@ message(STATUS "Compiler : ${CMAKE_CXX_COMPILER}")
 
 # SLANG shader compilation
 set(SHADER_HEADER_DIR ${PROJECT_SOURCE_DIR}/build/src/shaders)
-file(MAKE_DIRECTORY ${SHADER_HEADER_DIR})   # ← fix ici
+file(MAKE_DIRECTORY ${SHADER_HEADER_DIR})
 
 find_program(SLANG_VALIDATOR slangc
     HINTS /usr/bin /usr/local/bin
@@ -31,6 +31,10 @@ find_program(SLANG_VALIDATOR slangc
 
 file(GLOB_RECURSE SLANG_SOURCE_FILE
     "${PROJECT_SOURCE_DIR}/shaders/src/*.slang"
+)
+
+file(GLOB_RECURSE SLANG_MODULE_FILES
+    "${PROJECT_SOURCE_DIR}/shaders/modules/*.slang"
 )
 
 set(SHADER_HEADER_FILES "")
@@ -51,7 +55,7 @@ foreach(SLANG_FILE ${SLANG_SOURCE_FILE})
     add_custom_command(
         OUTPUT  ${SPIRV_FILE}
         COMMAND ${SLANG_VALIDATOR} -target spirv -o ${SPIRV_FILE} -- ${SLANG_FILE}
-        DEPENDS ${SLANG_FILE}
+        DEPENDS ${SLANG_FILE} ${SLANG_MODULE_FILES}
         COMMENT "Compiling shader: ${FILE_NAME}"
     )
 

@@ -2,7 +2,6 @@
 #include "glm/ext/vector_uint3.hpp"
 #include "graphics/Buffer.h"
 #include "graphics/PipelineDescriptor.h"
-#include "graphics/Shaders.h"
 #include "graphics/utils.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"

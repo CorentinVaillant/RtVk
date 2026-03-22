@@ -96,6 +96,9 @@ constexpr bool THROW_ON_MACRO_ERR = true;
     }                                                                          \
   } while (0)
 
+// -- Constants -- 
+#define STD140_ALIGNEMENT alignof(glm::vec4)
+
 // -- Common templates --
 
 template <typename D, typename T>

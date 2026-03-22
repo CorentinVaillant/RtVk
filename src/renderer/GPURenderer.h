@@ -11,12 +11,14 @@ struct RendererPushCst {
   Camera _cam;
   glm::vec4 _lightDir;
   float _renderWidth, _renderHeight, _time;
-  uint32_t spp = 32;
+  uint32_t max_depth = 5;
+  uint32_t spp = 100;
 };
 
 struct RendererUniforms {
   Camera::CameraRenderInfo _camRenderInfo;
 };
+
 
 class GPURenderer : public Renderer {
 
@@ -28,9 +30,9 @@ public:
 
   // -- Methods --
 private:
-  RendererPushCst get_push_cst(const Scene &scene)const;
+  RendererPushCst get_push_cst(const Scene &scene) const;
 
-  RendererUniforms get_uniform(const Scene &scene)const;
+  RendererUniforms get_uniform(const Scene &scene) const;
 
   static RtPipeline create_pipeline(VulkanContext &ctx);
   static DescriptorAllocator create_descr_aloc(VulkanContext &ctx);

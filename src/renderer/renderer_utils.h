@@ -110,7 +110,17 @@ inline constexpr BBox BBOX_UNIVERSE = {INTERVAL_REELS, INTERVAL_REELS,
 inline constexpr BBox BBOX_EMPTY = {INTERVAL_EMPTY, INTERVAL_EMPTY,
                                     INTERVAL_EMPTY};
 
+struct alignas(16) Material {
+  Color albedo;
+  Color emission = Color(0);
+  float roughness;
 
-// -- Vectors utils 
+  constexpr Material()
+      : albedo(0.906f, 0.906f, 0.906f, 1.f), emission(0.f), roughness(1.f) {}
+};
+
+inline constexpr Material DEFAULT_MATERIAL = Material();
+
+// -- Vectors utils
 
 using glm::xyz;

@@ -7,9 +7,11 @@
 #include "graphics/pipelines.h"
 #include "graphics/raii_graphic.h"
 #include "graphics/utils.h"
+#include "graphics/vma_usage.h"
 #include "graphics/vulkan_context.h"
 
 #include "hittables/Hittable.h"
+#include "renderer/renderer_utils.h"
 #include "shaders/simple_rt.slang.h"
 
 GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
@@ -42,7 +44,8 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   pipeline_descr.add_binding(0, StorageImage, Raygen)
       .add_binding(1, AccelerationStruct, {Raygen, ClosestHit})
       .add_binding(2, UniformBuffer, Raygen)
-      .add_binding(3, StorageBuffer, {Intersection, ClosestHit});
+      .add_binding(3, StorageBuffer, ClosestHit) 
+      .add_binding(4, StorageBuffer, {Intersection, ClosestHit});
 
   pipeline_descr.set_push_cst(ALL_RT_STAGE, 0, sizeof(RendererPushCst));
 
@@ -99,7 +102,7 @@ DescriptorAllocator GPURenderer::create_descr_aloc(VulkanContext &ctx) {
       {.type = StorageBuffer, .ratio = 4},
   };
 
-  return DescriptorAllocator(ctx, 10, sizes_ratio);
+  return DescriptorAllocator(ctx, 1, sizes_ratio);
 }
 
 // -- Renderer impl
@@ -115,16 +118,23 @@ void GPURenderer::render(const Scene &scene) {
                    VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                    General);
 
-  Buffer<RendererUniforms> uniform_buffer = Buffer<RendererUniforms>(
+  Buffer<RendererUniforms> uniform_buffer(
       _ctx, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-  auto uniform = get_uniform(scene);
+  RendererUniforms uniform = get_uniform(scene);
   uniform_buffer.write(1, &uniform);
+
+  Buffer<Material> material_buffer(_ctx, scene._materials.size(),
+                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                   VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+  material_buffer.write(scene._materials);
 
   DescriptorWriter writter;
   result_img.write(writter, 0, _pipeline.get_sampler(), StorageImage);
 
-  UploadedAccStruct gpu_acc_struct = scene._accStruct->upload_to_gpu(_ctx, writter);
+  UploadedAccStruct gpu_acc_struct =
+      scene._accStruct->upload_to_gpu(_ctx, writter);
 
   auto acc_write_descr_alloc = gpu_acc_struct.tlas.get_write_descr_alloc();
   gpu_acc_struct.tlas.get_buffer().write_into_descriptor(
@@ -134,6 +144,7 @@ void GPURenderer::render(const Scene &scene) {
   uniform_buffer.write_into_descriptor(writter, 2, 1, 0,
                                        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
+  material_buffer.write_into_descriptor(writter, 3, scene._materials.size(), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
   writter.update_set(_ctx._device, *descr_set);
 

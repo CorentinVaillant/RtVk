@@ -52,7 +52,7 @@ public:
   HittableInfo gpu_info() const override {
     return HittableInfo{
         .gpu_instance = reinterpret_cast<const uint8_t *>(&data),
-        .binding = 3,
+        .binding = 4,
         .obj_size = 32,
         .obj_offset = 0,
     }; // 32 -> std140 alignement

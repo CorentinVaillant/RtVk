@@ -88,17 +88,9 @@ public:
     vmaFlushAllocation(_ctx_allocator, _alloc, offset, count * sizeof(T));
   }
 
-  void write_into_descriptor(DescriptorWriter &writter, uint32_t binding,
-                             uint32_t count, uint32_t offset,
-                             VkDescriptorType descr_type,
-                             void *pNext = nullptr) const {
 
-    writter.write_buffer(binding, _buffer, count * sizeof(T),
-                         offset * sizeof(T), descr_type, pNext);
-  }
-
-  void write(std::span<T> data) { write(data.size(), data.data()); }
-  void write(size_t offset, std::span<T> data) {
+  void write(std::span<const T> data) { write(data.size(), data.data()); }
+  void write(size_t offset, std::span<const T> data) {
     write(offset, data.size(), data.data());
   }
 
@@ -115,6 +107,16 @@ public:
 
     return vkGetBufferDeviceAddress(device, &info);
   }
+
+    void write_into_descriptor(DescriptorWriter &writter, uint32_t binding,
+                             uint32_t count, uint32_t offset,
+                             VkDescriptorType descr_type,
+                             void *pNext = nullptr) const {
+
+    writter.write_buffer(binding, _buffer, count * sizeof(T),
+                         offset * sizeof(T), descr_type, pNext);
+  }
+
 
   // -- Attributs
 protected:
