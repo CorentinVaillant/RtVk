@@ -3,7 +3,7 @@
 #include "graphics/raii_graphic.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"
-#include <volk.h>
+#include <volk/volk.h>
 
 class VulkanContext;
 
@@ -20,7 +20,7 @@ enum DescriptorType {
   StorageImage = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
   UniformBuffer = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
   StorageBuffer = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-  AccelerationStruct = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
+  AccelerationStruct = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
   // ...
 };
 

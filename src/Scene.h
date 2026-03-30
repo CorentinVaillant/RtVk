@@ -1,15 +1,18 @@
 #pragma once
 
 #include "Camera.h"
-#include "hittables/Hittable.h"
+#include "hittables/SceneCollection.h"
 #include "renderer/renderer_utils.h"
+#include <cstdlib>
+#include <filesystem>
 
 struct Scene {
-  // - Backgrouds
-  // - Materials
 
-  Camera _camera;
-  std::unique_ptr<IAccStruct> _accStruct;
+  std::vector<Camera> _camera;
+  size_t _active_camera;
+  SceneCollection _collection;
   std::vector<Material> _materials = {DEFAULT_MATERIAL};
   float _time;
+
+  static std::vector<Scene> load_from_gltf(std::filesystem::path gltf_path);
 };

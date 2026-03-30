@@ -4,7 +4,7 @@
 #include "graphics/vulkan_context.h"
 #include <cstddef>
 #include <cstdint>
-#include <volk.h>
+#include <volk/volk.h>
 
 #ifdef NDEBUG
 #define STBIW_ASSERT(x)                                                        \

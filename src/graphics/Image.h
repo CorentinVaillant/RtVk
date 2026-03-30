@@ -5,7 +5,7 @@
 #include "graphics/vulkan_context.h"
 #include "types.h"
 #include <cstddef>
-#include <volk.h>
+#include <volk/volk.h>
 
 class VulkanContext;
 

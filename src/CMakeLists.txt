@@ -4,6 +4,9 @@ add_executable (RtVk
   main.cpp
   ImageBuffer.cpp
   test.cpp
+  Scene.cpp
+  
+  hittables/Mesh.cpp
 
   graphics/vulkan_context.cpp
   graphics/vma_usage.cpp

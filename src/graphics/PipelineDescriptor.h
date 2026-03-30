@@ -5,7 +5,7 @@
 #include "graphics/vulkan_context.h"
 #include "types.h"
 #include <vector>
-#include <volk.h>
+#include <volk/volk.h>
 
 class PipelineDescriptor {
 public:

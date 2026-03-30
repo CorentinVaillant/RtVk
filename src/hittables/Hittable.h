@@ -1,5 +1,6 @@
 #pragma once
 
+#include "glm/ext/matrix_float4x4.hpp"
 #include "graphics/Buffer.h"
 #include "graphics/GPUAccelerationStruct.h"
 #include "graphics/utils.h"
@@ -10,39 +11,19 @@
 #include "types.h"
 
 #include <utility>
-#include <vulkan/vulkan_core.h>
-
-struct HitRecord {
-  glm::vec3 p;
-  float t;
-  glm::vec3 normal;
-  glm::vec2 uv;
-  bool front_face;
-
-  void set_face_normal(glm::vec3 ray_dir, glm::vec3 out_normal) {
-    front_face = glm::dot(ray_dir, out_normal) < 0;
-    normal = front_face ? out_normal : -out_normal;
-  }
-};
-
-struct HittableInfo {
-  const uint8_t *gpu_instance;
-  uint32_t binding;
-  uint32_t obj_size, obj_offset;
-};
 
 class IHittable {
 public:
   virtual bool hit(Ray r, Interval ray_t, HitRecord *records) const = 0;
   virtual BBox get_bbox() const = 0;
 
+  virtual HittableInfo gpu_info() const = 0;
+
   virtual Blas get_blas(VulkanContext &ctx) const {
 
     VkAabbPositionsKHR aabb = {get_bbox().to_vk()};
-    return Blas(ctx, {&aabb, 1});
+    return Blas(ctx, {&aabb, 1}, glm::mat4(1));
   }
-
-  virtual HittableInfo gpu_info() const = 0;
 
   virtual ~IHittable() = default;
 };
@@ -51,7 +32,10 @@ template <typename T>
 concept Hittable = std::is_base_of_v<IHittable, T>;
 
 struct UploadedAccStruct {
-  Buffer<> primitive_buffers;
+  std::optional<Buffer<>> instance_buffer;
+  std::vector<Buffer<>> primitive_buffers;
+  std::optional<Buffer<>> vertex_buffer;
+  std::optional<Buffer<>> index_buffer;
   Tlas tlas;
 };
 
@@ -95,9 +79,11 @@ public:
   }
 
   // -- Methods
-  template <Hittable Hit> void push(Hit &&object) {
-    _objects.push_back(std::make_unique(std::move(object)));
-  }
+  void push(T &&object) { _objects.push_back(std::move(object)); }
+  size_t size() const { return _objects.size(); }
+
+  const std::vector<T> &vec() const { return _objects; }
+  std::vector<T> &vec() { return _objects; }
 
   // -- IAccStruct impl
   uint32_t hit(Ray r, Interval ray_t, HitRecord *records) const override {
@@ -135,8 +121,7 @@ public:
     for (const T &obj : _objects) {
       total_size += obj.gpu_info().obj_size;
     }
-    Buffer<> buffer(ctx, total_size,
-                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    Buffer<> buffer(ctx, total_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                     VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     std::vector<HittableInfo> infos;
@@ -168,8 +153,10 @@ public:
                                    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
     }
 
+    std::vector<Buffer<>> primitive_buffers;
+    primitive_buffers.emplace_back(std::move(buffer));
     return UploadedAccStruct{
-        .primitive_buffers = std::move(buffer),
+        .primitive_buffers = std::move(primitive_buffers),
         .tlas = std::move(tlas),
     };
   }

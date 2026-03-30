@@ -8,7 +8,7 @@ public interface IPdf
     public float value(Vec3 direction);
 
     /// @brief Generate a random value follwing the distribution
-    public Vec3 generate(uint seed);
+    public Vec3 generate(inout uint seed);
 };
 
 public struct SpherePdf : IPdf
@@ -16,10 +16,10 @@ public struct SpherePdf : IPdf
 
     public float value(Vec3 direction)
     {
-        return M_4_PI_F;
+        return 1.f/M_FOUR_PI_F;
     }
 
-    public Vec3 generate(uint seed)
+    public Vec3 generate(inout uint seed)
     {
         return random_unit(seed);
     }
@@ -40,7 +40,7 @@ public struct CosinePdf : IPdf
         return max(0.f, cos_theta / M_PI_F);
     }
 
-    public Vec3 generate(uint seed)
+    public Vec3 generate(inout uint seed)
     {
         return base.transform(random_cosine_hemisphere(seed));
     }
@@ -58,13 +58,13 @@ public struct ReflectPdf : IPdf
     public float value(Vec3 direction)
     {
         static constexpr float EPSILONE = 1e-8;
-        if (lenght_sq(direction - reflect_dir) < EPSILONE)
+        if (length_sq(direction - reflect_dir) < EPSILONE)
             return 1.0f;
         else
             return 0.f;
     }
 
-    public Vec3 generate(uint seed)
+    public Vec3 generate(inout uint seed)
     {
         return reflect_dir;
     }
@@ -90,7 +90,7 @@ public struct MixPdf<FirstPdf, SecondPdf> : IPdf
         return (1.f - mix) * first_pdf.value(direction) + mix * second_pdf.value(direction);
     }
 
-    public Vec3 generate(uint seed)
+    public Vec3 generate(inout uint seed)
     {
         let u = random(seed, 0.f, 1.f);
         if (mix <= u)

@@ -14,7 +14,7 @@
 #include "types.h"
 
 #define VOLK_IMPLEMENTATION
-#include <volk.h>
+#include <volk/volk.h>
 
 #include "vma_usage.h"
 

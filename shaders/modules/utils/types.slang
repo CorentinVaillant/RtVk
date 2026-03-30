@@ -133,13 +133,21 @@ public bool contains_open(float min, float max, float t)
     return min < t && t < max;
 }
 
-public float lenght_sq(Vec3 v) {
+public float length_sq(Vec3 v)
+{
     return dot(v, v);
 }
 
 public float sq(float x)
 {
     return x * x;
+}
+
+public Color mix(Color v1, Color v2, float mix_fact)
+{
+    mix_fact = clamp(mix_fact, 0, 1);
+    
+    return (1.f - mix_fact) * v1 + mix_fact * v2;
 }
 
 public float cos2theta(const in Vec3 w)

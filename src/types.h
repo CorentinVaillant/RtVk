@@ -1,6 +1,7 @@
 #pragma once
 
 // std
+#include "glm/detail/qualifier.hpp"
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -96,8 +97,8 @@ constexpr bool THROW_ON_MACRO_ERR = true;
     }                                                                          \
   } while (0)
 
-// -- Constants -- 
-#define STD140_ALIGNEMENT alignof(glm::vec4)
+// -- Constants --
+#define STD140_ALIGNEMENT 16
 
 // -- Common templates --
 
@@ -184,6 +185,12 @@ inline glm::vec2 random_in_unit_disk() {
   float ro = random_float();
 
   return ro * glm::vec2(std::cos(theta), std::sin(theta));
+}
+
+// -- maths --
+template <glm::length_t N>
+constexpr bool vec_near_zero(glm::vec<N, float> vector, float epsilon = 1e-8) {
+  return glm::dot(vector, vector) < epsilon;
 }
 
 // -- stl using --

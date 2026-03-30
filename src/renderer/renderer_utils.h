@@ -1,6 +1,7 @@
 #pragma once
 
-#include <volk.h>
+#include <cstdlib>
+#include <volk/volk.h>
 
 #include "types.h"
 
@@ -24,8 +25,23 @@ struct Interval {
   float min;
   float max;
 
-  bool contains(float t) const { return min <= t && t <= max; }
-  bool contains_open(float t) const { return min < t && t < max; }
+  constexpr Interval(float min_, float max_) : min(min_), max(max_) {
+    assert(max >= min);
+  }
+
+  constexpr Interval connexe_union(Interval other) {
+    return Interval{
+        this->min < other.min ? this->min : other.min,
+        this->max > other.max ? this->max : other.max,
+    };
+  }
+
+  constexpr Interval padded(float epsilon = 1e-8) const {
+    return Interval{min - std::abs(epsilon), max + std::abs(epsilon)};
+  }
+
+  constexpr bool contains(float t) const { return min <= t && t <= max; }
+  constexpr bool contains_open(float t) const { return min < t && t < max; }
 };
 
 inline constexpr Interval INTERVAL_REELS = {-INFINITY, INFINITY};
@@ -42,6 +58,14 @@ struct BBox {
         y(a.y <= b.y ? Interval(a.y, b.y) : Interval(b.y, a.y)),
         z(a.z <= b.z ? Interval(a.z, b.z) : Interval(b.z, a.z)) {}
 
+  constexpr BBox(BBox b1, BBox b2)
+      : x(b1.x.connexe_union(b2.x)), y(b1.y.connexe_union(b2.y)),
+        z(b1.z.connexe_union(b2.z)) {}
+
+  constexpr BBox padded(float epsilon = 1e-8) const {
+    return BBox{x.padded(epsilon), y.padded(epsilon), z.padded(epsilon)};
+  }
+
   const Interval &axis_interval(size_t axis) const {
     switch (axis) {
     case 0:
@@ -54,9 +78,7 @@ struct BBox {
       return z;
       break;
     default:
-#ifdef NDEBUG
       LOGWARN("(BBox error) axis is not 0, 1, or 2, return INTERVAL_EMPTY");
-#endif
       return INTERVAL_EMPTY;
     }
   }
@@ -110,13 +132,55 @@ inline constexpr BBox BBOX_UNIVERSE = {INTERVAL_REELS, INTERVAL_REELS,
 inline constexpr BBox BBOX_EMPTY = {INTERVAL_EMPTY, INTERVAL_EMPTY,
                                     INTERVAL_EMPTY};
 
+struct HitRecord {
+  glm::vec3 p;
+  float t;
+  glm::vec3 normal;
+  glm::vec2 uv;
+  bool front_face;
+
+  void set_face_normal(glm::vec3 ray_dir, glm::vec3 out_normal) {
+    front_face = glm::dot(ray_dir, out_normal) < 0;
+    normal = front_face ? out_normal : -out_normal;
+  }
+};
+
+struct HittableInfo {
+  const uint8_t *gpu_instance;
+  uint32_t binding;
+  uint32_t obj_size, obj_offset;
+};
+
+struct alignas(STD140_ALIGNEMENT) Instance {
+  uint32_t _materialId;
+  uint32_t _indexOffset;
+
+  static constexpr uint32_t BINDING = 4;
+};
+
+struct alignas(16) Vertex {
+  glm::vec3 position;
+  float u;
+  glm::vec3 normal;
+  float v;
+
+  glm::vec2 uv() const { return glm::vec2(u, v); }
+
+  static constexpr auto VK_FORMAT = VK_FORMAT_R32G32B32_SFLOAT;
+  static constexpr uint32_t BINDING = 5;
+};
+
 struct alignas(16) Material {
-  Color albedo;
-  Color emission = Color(0);
-  float roughness;
+  Color _albedo;
+  Color _emission = Color(0);
+  float _roughness;
+
+  constexpr Material(Color albedo, Color emission, float roughness)
+      : _albedo(albedo), _emission(emission), _roughness(roughness) {}
 
   constexpr Material()
-      : albedo(0.906f, 0.906f, 0.906f, 1.f), emission(0.f), roughness(1.f) {}
+      : _albedo(0.906f, 0.906f, 0.906f, 1.f), _emission(0.f), _roughness(0.5f) {
+  }
 };
 
 inline constexpr Material DEFAULT_MATERIAL = Material();

@@ -1,7 +1,6 @@
 #include "GPURenderer.h"
 
-#include <volk.h>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 
 #include "graphics/Image.h"
 #include "graphics/pipelines.h"
@@ -11,6 +10,7 @@
 #include "graphics/vulkan_context.h"
 
 #include "hittables/Hittable.h"
+#include "hittables/TriangleRef.h"
 #include "renderer/renderer_utils.h"
 #include "shaders/simple_rt.slang.h"
 
@@ -22,7 +22,7 @@ GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
 
 RendererPushCst GPURenderer::get_push_cst(const Scene &scene) const {
   return RendererPushCst{
-      ._cam = scene._camera,
+      ._cam = scene._camera[scene._active_camera],
       ._lightDir = glm::vec4(1, 0, 0, 0),
       ._renderWidth = static_cast<float>(_imgBuffer.get_width()),
       ._renderHeight = static_cast<float>(_imgBuffer.get_height()),
@@ -31,9 +31,10 @@ RendererPushCst GPURenderer::get_push_cst(const Scene &scene) const {
 }
 
 RendererUniforms GPURenderer::get_uniform(const Scene &scene) const {
-  return RendererUniforms{._camRenderInfo = scene._camera.get_render_info(
-                              static_cast<float>(_imgBuffer.get_width()),
-                              static_cast<float>(_imgBuffer.get_height()))};
+  return RendererUniforms{
+      ._camRenderInfo = scene._camera[scene._active_camera].get_render_info(
+          static_cast<float>(_imgBuffer.get_width()),
+          static_cast<float>(_imgBuffer.get_height()))};
 }
 
 // -- Statics
@@ -44,8 +45,11 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   pipeline_descr.add_binding(0, StorageImage, Raygen)
       .add_binding(1, AccelerationStruct, {Raygen, ClosestHit})
       .add_binding(2, UniformBuffer, Raygen)
-      .add_binding(3, StorageBuffer, ClosestHit) 
-      .add_binding(4, StorageBuffer, {Intersection, ClosestHit});
+      .add_binding(3, StorageBuffer, ClosestHit)
+      .add_binding(Instance::BINDING, StorageBuffer,  ClosestHit)
+      .add_binding(Vertex::BINDING, StorageBuffer,  ClosestHit)
+      .add_binding(TriangleIndices::BINDING, StorageBuffer,
+                   {Raygen, ClosestHit});
 
   pipeline_descr.set_push_cst(ALL_RT_STAGE, 0, sizeof(RendererPushCst));
 
@@ -53,8 +57,7 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   Shader rendering_shader = Shader(ctx, SIMPLE_RT_SPIRV);
   pipeline_descr.add_shader_stage(Raygen, rendering_shader, "rayGen")
       .add_shader_stage(Miss, rendering_shader, "miss")
-      .add_shader_stage(ClosestHit, rendering_shader, "closestHit")
-      .add_shader_stage(Intersection, rendering_shader, "sphereIntersection");
+      .add_shader_stage(ClosestHit, rendering_shader, "closestHit");
 
   // Shader groups
   RtPipelineCreateInfos create_info;
@@ -83,11 +86,11 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   create_info.groups[2] = VkRayTracingShaderGroupCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
       .pNext = nullptr,
-      .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR,
+      .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
       .generalShader = VK_SHADER_UNUSED_KHR,
-      .closestHitShader = 2, // closestHit
+      .closestHitShader = 2, // closestHit for Triangle
       .anyHitShader = VK_SHADER_UNUSED_KHR,
-      .intersectionShader = 3, // sphereIntersection
+      .intersectionShader = VK_SHADER_UNUSED_KHR,
   };
 
   return RtPipeline(ctx, pipeline_descr, create_info);
@@ -134,7 +137,7 @@ void GPURenderer::render(const Scene &scene) {
   result_img.write(writter, 0, _pipeline.get_sampler(), StorageImage);
 
   UploadedAccStruct gpu_acc_struct =
-      scene._accStruct->upload_to_gpu(_ctx, writter);
+      scene._collection.upload_to_gpu(_ctx, writter);
 
   auto acc_write_descr_alloc = gpu_acc_struct.tlas.get_write_descr_alloc();
   gpu_acc_struct.tlas.get_buffer().write_into_descriptor(
@@ -144,7 +147,8 @@ void GPURenderer::render(const Scene &scene) {
   uniform_buffer.write_into_descriptor(writter, 2, 1, 0,
                                        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-  material_buffer.write_into_descriptor(writter, 3, scene._materials.size(), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+  material_buffer.write_into_descriptor(writter, 3, scene._materials.size(), 0,
+                                        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
   writter.update_set(_ctx._device, *descr_set);
 

@@ -6,8 +6,7 @@
 #include "types.h"
 #include "vma_usage.h"
 #include <vector>
-#include <volk.h>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 
 class Image;
 

@@ -7,14 +7,16 @@ public struct Brdf
     // -- Attribut --
 
     public Color albedo;
-    public Color emmission = Color(0);
+    public Color emission;
     public float roughness;
+
+    float pad1 = 0, pad2 = 0, pad3 = 0;
 
     // -- Methods --
 
-    public Color emmited(const RayDesc ray, const HitAttribut hit_attr, Vec2 uv)
+    public Color emited(const RayDesc ray, const HitAttribut hit_attr, Vec2 uv)
     {
-        return emmission;
+        return emission;
     }
 
     public bool scatter(const RayDesc ray_in, const HitAttribut hit_attr, inout uint seed, out ScatterAttribut scatter_attr)

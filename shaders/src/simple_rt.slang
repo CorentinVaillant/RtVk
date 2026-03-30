@@ -40,62 +40,112 @@ public struct RendererUniforms
     }
 };
 
-[[vk::binding(0, 0)]]
-uniform RWTexture2D resultTexture;
-[[vk::binding(1, 0)]]
-uniform RaytracingAccelerationStructure scene;
-
-[[vk::binding(2, 0)]]
-uniform ConstantBuffer<RendererUniforms> uni;
-
-[[vk::binding(3, 0)]]
-uniform StructuredBuffer<Brdf> material;
-
 [[vk::push_constant]]
 ConstantBuffer<PushedCst> pushed;
+
+[[vk::binding(0, 0)]]
+RWTexture2D resultTexture;
+[[vk::binding(1, 0)]]
+RaytracingAccelerationStructure scene;
+
+[[vk::binding(2, 0)]]
+ConstantBuffer<RendererUniforms> uni;
+
+[[vk::binding(3, 0)]]
+StructuredBuffer<Brdf> material;
+
+[[vk::binding(4, 0)]]
+StructuredBuffer<RendererInstance> instances;
+
+[[vk::binding(5, 0)]]
+StructuredBuffer<Vertex> vertexBuffer;
+
+[[vk::binding(6, 0)]]
+StructuredBuffer<uint3> indexBuffer;
 
 [shader("raygeneration")]
 void rayGen()
 {
-    uint2 threadIdx = DispatchRaysIndex().xy;
+
     uint2 imageSize;
     resultTexture.GetDimensions(imageSize.x, imageSize.y);
+    uint2 threadIdx = DispatchRaysIndex().xy;
     uint seed = tea(threadIdx.x + imageSize.y, threadIdx.y + imageSize.x + uint(pushed.time * 465851.5));
 
     if (threadIdx.x >= imageSize.x || threadIdx.y >= imageSize.y)
         return;
 
     Vec4 result_color = Vec4(0);
+    RayDesc ray;
+    RayPayload payload;
     for (uint s = 0; s < pushed.spp; s++)
     {
+        ray = uni.get_ray(seed, pushed.camera.defocusAngle, threadIdx.x, threadIdx.y);
 
-        RayDesc ray = uni.get_ray(seed, pushed.camera.defocusAngle, threadIdx.x, threadIdx.y);
-
-        RayPayload payload = {};
+        payload.color = Vec4(0);
         payload.seed = seed;
         payload.depth = pushed.max_depth;
         TraceRay(scene, RAY_FLAG_NONE, ~0, 0, 0, 0, ray, payload);
 
         result_color += payload.color;
+        seed = payload.seed;
     }
-    resultTexture[threadIdx.xy] = result_color / float(pushed.spp);
+    result_color /= float(pushed.spp);
+
+    resultTexture[threadIdx.xy] = payload.depth == pushed.max_depth && hit_sphere(ray, Vec3(0), 0.01f) ? Color(1) : result_color;
 }
 
 static constexpr float ATTENUATION = 0.5f;
 static constexpr float ROUGHNESS = 0.3f;
 
 [shader("closesthit")]
-void closestHit(inout RayPayload payload, in HitAttribut attr)
+void closestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr_in)
+{
+    uint tri_index = PrimitiveIndex();
+    RendererInstance instance = instances[InstanceID()];
+    uint3 idx = indexBuffer[tri_index + instance.indexOffset];
+    if (random(payload.seed, 0, 1) < 0.01f)
+        printf("index offset : %u\n", instance.indexOffset);
+
+    Vertex v0 = vertexBuffer[idx.x];
+    Vertex v1 = vertexBuffer[idx.y];
+    Vertex v2 = vertexBuffer[idx.z];
+
+    Vec3 b = Vec3(1.0 - attr_in.barycentrics.x - attr_in.barycentrics.y,
+                  attr_in.barycentrics.x,
+                  attr_in.barycentrics.y);
+
+    // Simple interpolation
+    HitAttribut attr;
+    attr.time = RayTCurrent();
+    attr.normal = normalize(b.x * v0.normal + b.y * v1.normal + b.z * v2.normal);
+    attr.u = b.x * v0.u + b.y * v1.u + b.z * v2.u;
+    attr.v = b.x * v0.v + b.y * v1.v + b.z * v2.v;
+    attr.front_face = dot(WorldRayDirection(), attr.normal) < 0;
+    if (!attr.front_face)
+        attr.normal *= -1;
+    attr.material_index = instance.materialId;
+
+    RayDesc ray;
+    ray.Direction = WorldRayDirection();
+    ray.Origin = WorldRayOrigin();
+    ray.TMax = 10000;
+    ray.TMin = RayTMin();
+
+    shade(ray, payload, attr);
+}
+
+[shader("miss")]
+void miss(inout RayPayload payload)
+{
+    payload.color = Color(0.3);
+}
+
+void shade(in RayDesc ray_in, inout RayPayload payload, HitAttribut attr)
 {
     payload.depth--;
     if (payload.depth <= 0)
         return miss(payload);
-
-    RayDesc ray;
-    ray.Origin = WorldRayOrigin();
-    ray.Direction = WorldRayDirection();
-    ray.TMin = 0.0001f;
-    ray.TMax = 10000;
 
     if (attr.material_index >= uint(material.getCount()))
     {
@@ -109,80 +159,29 @@ void closestHit(inout RayPayload payload, in HitAttribut attr)
     scatter_ray.TMax = 10000.f;
 
     ScatterAttribut scattr;
-    if (!brdf.scatter(ray, attr, payload.seed, scattr))
+    if (!brdf.scatter(ray_in, attr, payload.seed, scattr))
     {
-        payload.color += brdf.emmited(ray, attr, Vec2(0));
+        payload.color = brdf.emited(ray_in, attr, attr.uv);
         return;
     }
 
     scatter_ray.Direction = scattr.out_dir;
 
     TraceRay(scene, RAY_FLAG_NONE, ~0, 0, 0, 0, scatter_ray, payload);
-    payload.color = payload.color * scattr.attenuation + brdf.emmited(ray, attr, Vec2(0));
+    Color emitted = brdf.emited(ray_in, attr, attr.uv);
+
+    if (!scattr.skip_pdf && scattr.pdf_val > 1e-8f)
+        payload.color = payload.color * scattr.attenuation / scattr.pdf_val + emitted;
+    else
+        payload.color = payload.color * scattr.attenuation + emitted;
+
     return;
 }
 
-[shader("miss")]
-void miss(inout RayPayload payload)
+void shadeDebug(in RayDesc ray_in, inout RayPayload payload, HitAttribut attr)
 {
-    payload.color = sky_func(WorldRayDirection());
-}
+    float t = float(InstanceID()) * M_PI_F / 8.f;
+    payload.color = Color(0.5 + 0.5 * cos(6.2831 * (Vec3(0.0, 0.33, 0.67) + t)), 1.f);
 
-// -- Intersection part --
-
-struct Sphere
-{
-    Vec4 position;
-    float radius;
-};
-
-[[vk::binding(4, 0)]]
-uniform StructuredBuffer<Sphere> primitiveBuffer;
-
-// -- Sphere
-
-[shader("intersection")]
-void sphereIntersection()
-{
-    HitAttribut hit_record;
-
-    uint sphere_index = InstanceID() + GeometryIndex();
-    Sphere sphere = primitiveBuffer[sphere_index];
-    Vec4 deb_pos = sphere.position;
-
-    float t_min = RayTMin();
-    float t_max = RayTCurrent();
-
-    Vec3 ray_origin = WorldRayOrigin();
-    Vec3 ray_direction = WorldRayDirection();
-
-    // fancy quadratic formula
-    Vec3 oc = sphere.position.xyz - ray_origin;
-    float a = dot(ray_direction, ray_direction);
-    float h = dot(ray_direction, oc);
-    float c = dot(oc, oc) - sphere.radius * sphere.radius;
-
-    float discr = h * h - a * c;
-    if (discr < 0.f)
-        return; // No hit
-
-    float delta = sqrt(discr);
-
-    // Nearest root in range
-    float root = (h - delta) / a;
-    if (!contains_open(t_min, t_max, root))
-    {
-        root = (h + delta) / a; // testing the conjugate
-        if (!contains_open(t_min, t_max, root))
-            return; // roots out of range
-    }
-
-    // HIT !
-    // HitAttribut hit_record;
-    hit_record.time = root;
-    Vec3 out_normal = (hit_record.position - sphere.position.xyz) / sphere.radius;
-    hit_record.set_face_normal(ray_direction, out_normal);
-    hit_record.material_index = 0;
-
-    ReportHit(root, 0, hit_record);
+    return;
 }

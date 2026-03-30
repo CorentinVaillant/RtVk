@@ -15,7 +15,7 @@ struct Camera {
   glm::vec4 lookAt{0, 0, 0, 1};
   glm::vec4 vUp{0, 1, 0, 1};
 
-  struct CameraRenderInfo {
+  struct alignas(STD140_ALIGNEMENT) CameraRenderInfo {
     glm::vec4 center;
     glm::vec4 view_u, view_v;
     glm::vec4 dt_u, dt_v;                     // differances between two pixel
@@ -29,6 +29,8 @@ struct Camera {
       return center + (p.x * defocus_disk_u) + (p.y * defocus_disk_v);
     }
   };
+
+  // -- Methods --
 
   CameraRenderInfo get_render_info(size_t width, size_t heigth) const {
     float aspect_ratio = static_cast<float>(width) / static_cast<float>(heigth);
@@ -65,5 +67,27 @@ struct Camera {
         result.viewport_uper_left + 0.5f * (result.dt_u + result.dt_v);
 
     return result;
+  }
+
+  void move_forward(float dist) {
+    lookFrom += glm::normalize(lookAt - lookFrom) * dist;
+  }
+
+  void move_backward(float dist) { move_forward(-dist); }
+
+  void move_upward(float dist) { lookFrom += glm::normalize(vUp) * dist; }
+
+  void move_downward(float dist) { move_upward(-dist); }
+
+  void move_left(float dist) {
+    lookFrom -= glm::vec4(
+        glm::normalize(glm::cross(xyz(lookAt - lookFrom), xyz(vUp))) * dist,
+        lookFrom.w);
+  }
+
+  void move_right(float dist) {
+    lookFrom += glm::vec4(
+        glm::normalize(glm::cross(xyz(lookAt - lookFrom), xyz(vUp))) * dist,
+        lookFrom.w);
   }
 };

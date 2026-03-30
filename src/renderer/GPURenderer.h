@@ -5,7 +5,7 @@
 #include "graphics/utils.h"
 #include "graphics/vulkan_context.h"
 #include "renderer/Renderer.h"
-#include <vulkan/vulkan_core.h>
+#include "types.h"
 
 struct RendererPushCst {
   Camera _cam;
@@ -15,10 +15,9 @@ struct RendererPushCst {
   uint32_t spp = 100;
 };
 
-struct RendererUniforms {
+struct alignas(STD140_ALIGNEMENT) RendererUniforms {
   Camera::CameraRenderInfo _camRenderInfo;
 };
-
 
 class GPURenderer : public Renderer {
 

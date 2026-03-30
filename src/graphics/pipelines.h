@@ -8,8 +8,7 @@
 #include <cassert>
 #include <concepts>
 #include <cstdint>
-#include <volk.h>
-#include <vulkan/vulkan_core.h>
+#include <volk/volk.h>
 
 // -- ComputePipeline --
 

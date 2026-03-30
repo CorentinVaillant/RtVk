@@ -5,7 +5,6 @@
 #include "graphics/utils.h"
 #include "graphics/vma_usage.h"
 #include "types.h"
-#include <vulkan/vulkan_core.h>
 // -- ComputePipeline --
 
 // -- Constructors

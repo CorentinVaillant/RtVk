@@ -4,28 +4,49 @@
 #include "graphics/Buffer.h"
 #include "graphics/vma_usage.h"
 #include "graphics/vulkan_context.h"
+#include "hittables/TriangleRef.h"
+#include "renderer/renderer_utils.h"
 #include "types.h"
 #include <cstdint>
 #include <optional>
 
-#include <volk.h>
+#include <volk/volk.h>
 #include <vulkan/vulkan_core.h>
 
 class Blas {
+  // -- Attributs
+private:
+  static constexpr VkBufferUsageFlags BLAS_BUFFER_USAGE =
+      VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+      VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+  VkDevice _ctxDevice;
+
+public:
+  std::optional<Buffer<>> _geoBuffer;
+  std::optional<BlasBuffer<uint8_t>> _blasBuffer;
+  VkAccelerationStructureKHR _blas = VK_NULL_HANDLE;
+
+  uint32_t _instanceCustomIndex = 0;
+  glm::mat4 _transform;
+
+  // -- Constructors
 public:
   NO_COPY(Blas);
 
   Blas() = delete;
 
-  Blas(VulkanContext &ctx, std::span<VkAabbPositionsKHR> aabbs)
-      : _ctxDevice(ctx._device), _aabbsBuffer(upload_buffer(ctx, aabbs)),
-        _blasBuffer(std::nullopt) {
+  Blas(VulkanContext &ctx, std::span<VkAabbPositionsKHR> aabbs,
+       glm::mat4 transform)
+      : _ctxDevice(ctx._device), _geoBuffer(upload_buffer(ctx, aabbs)),
+        _blasBuffer(std::nullopt), _transform(transform) {
 
     VkDeviceOrHostAddressConstKHR data_adress = {
-        _aabbsBuffer.get_device_adresse(_ctxDevice)};
+        _geoBuffer->get_device_adresse(_ctxDevice)};
     VkAccelerationStructureGeometryAabbsDataKHR aabb_data{
         .sType =
             VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR,
+
         .pNext = nullptr,
         .data = data_adress,
         .stride = sizeof(VkAabbPositionsKHR),
@@ -42,6 +63,90 @@ public:
         .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
     };
 
+    build_blas(ctx, aabbs, geometry);
+  }
+
+  Blas(VulkanContext &ctx, std::span<const TriangleIndices> indices,
+       const Buffer<> &vbuff, const Buffer<> &ibuff, size_t instance_id,
+       size_t index_offset, glm::mat4 transform)
+      : _ctxDevice(ctx._device), _geoBuffer(std::nullopt), // no owned buffer
+        _blasBuffer(std::nullopt), _instanceCustomIndex(instance_id),
+        _transform(transform) {
+
+    static_assert(sizeof(TriangleIndices) == 3 * sizeof(uint32_t),
+                  "TriangleIndices must be tightly packed");
+
+    VkAccelerationStructureGeometryTrianglesDataKHR trianle_data{
+        .sType =
+            VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+        .vertexFormat = Vertex::VK_FORMAT,
+        .vertexData = {.deviceAddress = vbuff.get_device_adresse(_ctxDevice)},
+        .vertexStride = sizeof(Vertex),
+        .maxVertex = (uint32_t)(vbuff._count / sizeof(Vertex) - 1),
+        .indexType = VK_INDEX_TYPE_UINT32,
+        .indexData = {.deviceAddress = ibuff.get_device_adresse(_ctxDevice) +
+                                       index_offset * sizeof(TriangleIndices)},
+        .transformData = {},
+    };
+
+    VkAccelerationStructureGeometryKHR blas_geometry{
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+        .pNext = nullptr,
+        .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+        .geometry = {.triangles = trianle_data},
+        .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+    };
+
+    build_blas(ctx, indices, blas_geometry);
+  }
+
+  Blas(Blas &&rval)
+      : _ctxDevice(rval._ctxDevice), _geoBuffer(std::move(rval._geoBuffer)),
+        _blasBuffer(std::move(rval._blasBuffer)), _blas((rval._blas)),
+        _instanceCustomIndex(rval._instanceCustomIndex),
+        _transform(rval._transform) {
+    rval._ctxDevice = VK_NULL_HANDLE;
+    rval._blas = VK_NULL_HANDLE;
+  }
+
+  Blas &operator=(Blas &&rval) {
+    if (this != &rval) {
+      this->_ctxDevice = rval._ctxDevice;
+      this->_geoBuffer = std::move(rval._geoBuffer);
+      this->_blasBuffer = std::move(rval._blasBuffer);
+      this->_blas = rval._blas;
+      this->_instanceCustomIndex = rval._instanceCustomIndex;
+      this->_transform = rval._transform;
+
+      rval._blas = VK_NULL_HANDLE;
+      rval._ctxDevice = VK_NULL_HANDLE;
+    }
+    return *this;
+  }
+
+  ~Blas() {
+    if (_ctxDevice != VK_NULL_HANDLE && _blas != VK_NULL_HANDLE)
+      vkDestroyAccelerationStructureKHR(_ctxDevice, _blas, nullptr);
+    _blas = VK_NULL_HANDLE;
+  }
+
+  // -- Methods
+public:
+  VkDeviceAddress get_device_addres() {
+    VkAccelerationStructureDeviceAddressInfoKHR info{
+        .sType =
+            VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+        .pNext = nullptr,
+        .accelerationStructure = _blas,
+    };
+    return vkGetAccelerationStructureDeviceAddressKHR(_ctxDevice, &info);
+  }
+
+private:
+  template <std::copy_constructible T>
+  void build_blas(VulkanContext &ctx, std::span<T> data,
+                  VkAccelerationStructureGeometryKHR geometry) {
+
     VkAccelerationStructureBuildGeometryInfoKHR build_info{
         .sType =
             VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -55,7 +160,7 @@ public:
         .pGeometries = &geometry,
     };
 
-    uint32_t primitive_count = static_cast<uint32_t>(aabbs.size());
+    uint32_t primitive_count = static_cast<uint32_t>(data.size());
 
     VkAccelerationStructureBuildSizesInfoKHR size_info{
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
@@ -105,68 +210,19 @@ public:
     const VkAccelerationStructureBuildRangeInfoKHR *ptr_range_info =
         &range_info;
 
-    ctx.immediate_submit([&build_info, &ptr_range_info](auto cmd) { // !HERE
+    ctx.immediate_submit([&build_info, &ptr_range_info](auto cmd) {
       vkCmdBuildAccelerationStructuresKHR(cmd, 1, &build_info, &ptr_range_info);
     });
   }
 
-  Blas(Blas &&rval)
-      : _ctxDevice(rval._ctxDevice), _aabbsBuffer(std::move(rval._aabbsBuffer)),
-        _blasBuffer(std::move(rval._blasBuffer)), _blas((rval._blas)) {
-    rval._ctxDevice = VK_NULL_HANDLE;
-    rval._blas = VK_NULL_HANDLE;
-  }
-
-  Blas &operator=(Blas &&rval) {
-    if (this != &rval) {
-      this->_aabbsBuffer = std::move(rval._aabbsBuffer);
-      this->_blasBuffer = std::move(rval._blasBuffer);
-      this->_blas = rval._blas;
-
-      rval._blas = VK_NULL_HANDLE;
-    }
-    return *this;
-  }
-
-  ~Blas() {
-    if (_ctxDevice == VK_NULL_HANDLE || _blas == VK_NULL_HANDLE)
-      return;
-    vkDestroyAccelerationStructureKHR(_ctxDevice, _blas, nullptr);
-    _blas = VK_NULL_HANDLE;
-  }
-
-  // -- Methods
-public:
-  VkDeviceAddress get_device_addres() {
-    VkAccelerationStructureDeviceAddressInfoKHR info{
-        .sType =
-            VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-        .pNext = nullptr,
-        .accelerationStructure = _blas,
-    };
-    return vkGetAccelerationStructureDeviceAddressKHR(_ctxDevice, &info);
-  }
-
-private:
-  static Buffer<VkAabbPositionsKHR>
-  upload_buffer(VulkanContext &ctx, std::span<VkAabbPositionsKHR> aabbs) {
-    auto result = Buffer<VkAabbPositionsKHR>(
-        ctx, aabbs.size(), AABB_BUFFER_USAGE, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    result.write(aabbs.size(), aabbs.data());
+  template <std::copy_constructible T>
+  static Buffer<> upload_buffer(VulkanContext &ctx, std::span<T> data) {
+    auto result = Buffer<>(ctx, data.size() * sizeof(T), BLAS_BUFFER_USAGE,
+                           VMA_MEMORY_USAGE_CPU_TO_GPU);
+    result.write(data.size() * sizeof(T),
+                 reinterpret_cast<const uint8_t *>(data.data()));
     return result;
   }
-
-private:
-  static constexpr VkBufferUsageFlags AABB_BUFFER_USAGE =
-      VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-      VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-
-  VkDevice _ctxDevice;
-
-public:
-  Buffer<VkAabbPositionsKHR> _aabbsBuffer;
-  std::optional<BlasBuffer<uint8_t>> _blasBuffer;
-  VkAccelerationStructureKHR _blas = VK_NULL_HANDLE;
 };
 
 class Tlas {
@@ -188,8 +244,8 @@ public:
     for (size_t i = 0; i < _blasVec.size(); i++) {
       Blas &blas = _blasVec[i];
       instances.emplace_back(VkAccelerationStructureInstanceKHR{
-          .transform = IDENTITY_TRANSFORM,
-          .instanceCustomIndex = static_cast<uint32_t>(i), // InstanceId() call
+          .transform = glm_to_vk_matrix(blas._transform),   // ! TEMPVAL
+          .instanceCustomIndex = blas._instanceCustomIndex, // InstanceId() call
           .mask = 0xff,
           .instanceShaderBindingTableRecordOffset = 0, // hit group 0
           .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
@@ -336,6 +392,14 @@ public:
   }
 
 private:
+  VkTransformMatrixKHR glm_to_vk_matrix(glm::mat4 m) {
+    return VkTransformMatrixKHR{.matrix = {
+                                    {m[0][0], m[1][0], m[2][0], m[3][0]},
+                                    {m[0][1], m[1][1], m[2][1], m[3][1]},
+                                    {m[0][2], m[1][2], m[2][2], m[3][2]},
+                                }};
+  }
+
   static constexpr VkTransformMatrixKHR IDENTITY_TRANSFORM =
       VkTransformMatrixKHR{.matrix = {
                                {1, 0, 0, 0},

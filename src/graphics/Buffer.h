@@ -7,7 +7,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstring>
-#include <volk.h>
+#include <volk/volk.h>
 // ~ : There is a lot of parameters that are defaulted, maybe make
 // an
 // aditional struct builder, that register all of this
@@ -15,6 +15,16 @@
 
 template <std::copy_constructible T = uint8_t> class Buffer {
 public:
+  // -- Attributs
+protected:
+  VmaAllocator _ctx_allocator;
+
+public:
+  VkBuffer _buffer;
+  VmaAllocation _alloc;
+  VmaAllocationInfo _allocInfo;
+  size_t _count;
+  
   // -- Constructors
   Buffer(VulkanContext &ctx, size_t alloc_count, VkBufferUsageFlags usage,
          VmaMemoryUsage mem_usage)
@@ -31,8 +41,8 @@ public:
     };
 
     VmaAllocationCreateFlags flags = (mem_usage == VMA_MEMORY_USAGE_GPU_ONLY)
-                                        ? 0
-                                        : VMA_ALLOCATION_CREATE_MAPPED_BIT;
+                                         ? 0
+                                         : VMA_ALLOCATION_CREATE_MAPPED_BIT;
     VmaAllocationCreateInfo vma_alloc_create_info{
         .flags = flags,
         .usage = mem_usage,
@@ -88,7 +98,6 @@ public:
     vmaFlushAllocation(_ctx_allocator, _alloc, offset, count * sizeof(T));
   }
 
-
   void write(std::span<const T> data) { write(data.size(), data.data()); }
   void write(size_t offset, std::span<const T> data) {
     write(offset, data.size(), data.data());
@@ -108,7 +117,7 @@ public:
     return vkGetBufferDeviceAddress(device, &info);
   }
 
-    void write_into_descriptor(DescriptorWriter &writter, uint32_t binding,
+  void write_into_descriptor(DescriptorWriter &writter, uint32_t binding,
                              uint32_t count, uint32_t offset,
                              VkDescriptorType descr_type,
                              void *pNext = nullptr) const {
@@ -116,17 +125,6 @@ public:
     writter.write_buffer(binding, _buffer, count * sizeof(T),
                          offset * sizeof(T), descr_type, pNext);
   }
-
-
-  // -- Attributs
-protected:
-  VmaAllocator _ctx_allocator;
-
-public:
-  VkBuffer _buffer;
-  VmaAllocation _alloc;
-  VmaAllocationInfo _allocInfo;
-  size_t _count;
 };
 
 template <std::copy_constructible T> class BlasBuffer : public Buffer<T> {

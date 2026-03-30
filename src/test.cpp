@@ -1,5 +1,6 @@
 #include "test.h"
 #include "ImageBuffer.h"
+#include "Scene.h"
 #include "graphics/Image.h"
 #include "graphics/PipelineDescriptor.h"
 #include "graphics/Shaders.h"
@@ -7,7 +8,6 @@
 #include "graphics/raii_graphic.h"
 #include "graphics/vulkan_context.h"
 #include "hittables/Hittable.h"
-#include "hittables/Sphere.h"
 #include "types.h"
 #include <cassert>
 #include <utility>
@@ -17,7 +17,7 @@
 
 #ifdef NTEST
 #include "graphics/utils.h"
-#include <volk.h>
+#include <volk/volk.h>
 
 struct PushCstTest {
   glm::vec2 start = glm::vec2(0);
@@ -107,19 +107,11 @@ void test_compute_pipeline_build(VulkanContext &ctx) {
   LOGOK("compute_pipeline_build");
 }
 
-void test_acceleration_struct(VulkanContext &ctx) {
-  std::vector<Sphere> vec_sphere;
-  for (uint i = 0; i < 20; i++) {
-    vec_sphere.push_back(Sphere(glm::vec3(i * i, 0, 0), i + 1));
-  }
-
-  HittableVector vec(std::move(vec_sphere));
-  DescriptorWriter writter;
-
+void test_gltf() {
   [[maybe_unused]]
-  auto data = vec.upload_to_gpu(ctx, writter);
+  auto scenes = Scene::load_from_gltf("../resources/test_scene.gltf");
 
-  LOGOK("acceleration_struct");
+  LOGOK("test_gltf loading");
 }
 
 #endif
