@@ -1,8 +1,9 @@
 #pragma once
 
 #include "glm/ext/matrix_float4x4.hpp"
+#include "graphics/Blas.h"
 #include "graphics/Buffer.h"
-#include "graphics/GPUAccelerationStruct.h"
+#include "graphics/Tlas.h"
 #include "graphics/utils.h"
 #include "graphics/vma_usage.h"
 #include "graphics/vulkan_context.h"
@@ -36,7 +37,8 @@ struct UploadedAccStruct {
   std::vector<Buffer<>> primitive_buffers;
   std::optional<Buffer<>> vertex_buffer;
   std::optional<Buffer<>> index_buffer;
-  Tlas tlas;
+  std::vector<Blas> blas;
+  Tlas scene;
 };
 
 class IAccStruct {
@@ -113,7 +115,8 @@ public:
     for (auto &obj : _objects)
       blas_vec.emplace_back(obj.get_blas(ctx));
 
-    Tlas tlas(ctx, std::move(blas_vec));
+    std::array<std::span<Blas>, 1> blas_span_tab{std::span<Blas>{blas_vec}};
+    Tlas tlas(ctx, blas_span_tab);
 
     // Upload in buffer
 
@@ -157,7 +160,8 @@ public:
     primitive_buffers.emplace_back(std::move(buffer));
     return UploadedAccStruct{
         .primitive_buffers = std::move(primitive_buffers),
-        .tlas = std::move(tlas),
+        .blas = std::move(blas_vec),
+        .scene = std::move(tlas),
     };
   }
 

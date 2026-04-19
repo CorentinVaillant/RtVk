@@ -9,8 +9,6 @@ import "../modules/attributs";
 [shader("closesthit")]
 void meshHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr_in)
 {
-
-    
     uint tri_index = PrimitiveIndex();
     RendererInstance instance = instances[InstanceID()];
     uint3 idx = indexBuffer[tri_index + instance.indexOffset];
@@ -48,9 +46,6 @@ void meshHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes 
 [shader("closesthit")]
 void meshPdfHit(inout PdfPayload payload, in BuiltInTriangleIntersectionAttributes attr_in)
 {
-
-    printf("MeshPdfHit! --");
-
     payload.hit = false;
 
     let ray_dir = WorldRayDirection();
@@ -103,6 +98,6 @@ void meshPdfHit(inout PdfPayload payload, in BuiltInTriangleIntersectionAttribut
 [shader("closesthit")]
 void LightHit(inout RayPayload payload, in LightAttribut attr_in)
 {
-    payload.color = Color(1,0,0,1);
+    payload.color = Color(1, 0, 0, 1);
     return;
 }

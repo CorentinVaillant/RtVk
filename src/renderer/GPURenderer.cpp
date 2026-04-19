@@ -145,8 +145,8 @@ void GPURenderer::render(const Scene &scene) {
   UploadedAccStruct gpu_acc_struct =
       scene._collection.upload_to_gpu(_ctx, writter);
 
-  auto acc_write_descr_alloc = gpu_acc_struct.tlas.get_write_descr_alloc();
-  gpu_acc_struct.tlas.get_buffer().write_into_descriptor(
+  auto acc_write_descr_alloc = gpu_acc_struct.scene.get_write_descr_alloc();
+  gpu_acc_struct.scene.get_buffer().write_into_descriptor(
       writter, 1, 1, 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
       &acc_write_descr_alloc);
 

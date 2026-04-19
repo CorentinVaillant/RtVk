@@ -7,7 +7,7 @@
 
 #include "Scene.h"
 
-class CPURenderer : public Renderer {
+class [[deprecated("Use GpuRenderer instead")]] CPURenderer : public Renderer {
 public:
   CPURenderer(ImageBuffer &&img_buffer) : Renderer(std::move(img_buffer)) {}
   CPURenderer(size_t img_width, size_t img_heigth,
@@ -15,7 +15,7 @@ public:
       : Renderer(ImageBuffer(img_width, img_heigth, format)) {}
 
   virtual void render(const Scene &scene) override {
-    const Camera& cam = scene._camera[scene._active_camera];
+    const Camera &cam = scene._camera[scene._active_camera];
     size_t img_width = _imgBuffer.get_width();
     size_t img_height = _imgBuffer.get_height();
     _camRenderInfo = cam.get_render_info(img_width, img_height);
@@ -25,7 +25,7 @@ public:
       }
   }
 
-  virtual ~CPURenderer()  = default;
+  virtual ~CPURenderer() = default;
 
 protected:
   // Pipeline Simulation
@@ -47,10 +47,11 @@ protected:
                              i_f * _camRenderInfo.dt_u +
                              j_f * _camRenderInfo.dt_v;
 
-    glm::vec3 ray_origin = cam.defocusAngle <= 0
-                               ? cam.lookFrom
-                               : _camRenderInfo.defocus_disk_sample(cam.lookFrom);
-                               
+    glm::vec3 ray_origin =
+        cam.defocusAngle <= 0
+            ? cam.lookFrom
+            : _camRenderInfo.defocus_disk_sample(cam.lookFrom);
+
     glm::vec3 ray_dir = pixel_sample - ray_origin;
 
     return {ray_origin, ray_dir};
@@ -63,7 +64,8 @@ protected:
   Camera::CameraRenderInfo _camRenderInfo;
 };
 
-class SimpleCPURenderer : public CPURenderer {
+class [[deprecated("Use GpuRenderer instead")]] SimpleCPURenderer
+    : public CPURenderer {
 public:
   SimpleCPURenderer(ImageBuffer &&img_buffer)
       : CPURenderer(std::move(img_buffer)) {}
@@ -75,7 +77,7 @@ public:
 
 protected:
   Color gen_ray(const Scene &scene, size_t i, size_t j) const override {
-    const Camera& cam = scene._camera[scene._active_camera];
+    const Camera &cam = scene._camera[scene._active_camera];
     Ray ray = get_ray(i, j, cam);
     HitRecord record;
     uint32_t hit_index = scene._collection.hit(ray, INTERVAL_REELS, &record);

@@ -42,47 +42,47 @@ private:
     _mesh_vertex_offsets.reserve(assets.meshes.size());
 
     for (auto &mesh : assets.meshes) {
-        _mesh_vertex_offsets.push_back(_vertices.size());
+      _mesh_vertex_offsets.push_back(_vertices.size());
 
-        for (auto &primitive : mesh.primitives) {
-            auto pos_it = primitive.findAttribute("POSITION");
-            if (pos_it == primitive.attributes.end())
-                continue;
+      for (auto &primitive : mesh.primitives) {
+        auto pos_it = primitive.findAttribute("POSITION");
+        if (pos_it == primitive.attributes.end())
+          continue;
 
-            auto nor_it = primitive.findAttribute("NORMAL");
-            auto uv_it  = primitive.findAttribute("TEXCOORD_0");
+        auto nor_it = primitive.findAttribute("NORMAL");
+        auto uv_it = primitive.findAttribute("TEXCOORD_0");
 
-            auto &pos_acc = assets.accessors[pos_it->accessorIndex];
-            size_t base = _vertices.size();
-            _vertices.resize(base + pos_acc.count);
+        auto &pos_acc = assets.accessors[pos_it->accessorIndex];
+        size_t base = _vertices.size();
+        _vertices.resize(base + pos_acc.count);
 
-            // Load positions
-            fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
-                assets, pos_acc, [&](fastgltf::math::fvec3 v, size_t i) {
-                    _vertices[base + i].position = {v[0], v[1], v[2]};
-                });
+        // Load positions
+        fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+            assets, pos_acc, [&](fastgltf::math::fvec3 v, size_t i) {
+              _vertices[base + i].position = {v[0], v[1], v[2]};
+            });
 
-            // Load normals
-            if (nor_it != primitive.attributes.end()) {
-                auto &nor_acc = assets.accessors[nor_it->accessorIndex];
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
-                    assets, nor_acc, [&](fastgltf::math::fvec3 n, size_t i) {
-                        _vertices[base + i].normal = {n[0], n[1], n[2]};
-                    });
-            }
-
-            // Load UVs
-            if (uv_it != primitive.attributes.end()) {
-                auto &uv_acc = assets.accessors[uv_it->accessorIndex];
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(
-                    assets, uv_acc, [&](fastgltf::math::fvec2 uv, size_t i) {
-                        _vertices[base + i].u = uv[0];
-                        _vertices[base + i].v = uv[1];
-                    });
-            }
+        // Load normals
+        if (nor_it != primitive.attributes.end()) {
+          auto &nor_acc = assets.accessors[nor_it->accessorIndex];
+          fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+              assets, nor_acc, [&](fastgltf::math::fvec3 n, size_t i) {
+                _vertices[base + i].normal = {n[0], n[1], n[2]};
+              });
         }
+
+        // Load UVs
+        if (uv_it != primitive.attributes.end()) {
+          auto &uv_acc = assets.accessors[uv_it->accessorIndex];
+          fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(
+              assets, uv_acc, [&](fastgltf::math::fvec2 uv, size_t i) {
+                _vertices[base + i].u = uv[0];
+                _vertices[base + i].v = uv[1];
+              });
+        }
+      }
     }
-}
+  }
 
   void load_models(fastgltf::Asset &assets, fastgltf::Scene &scene) {
     std::span<Vertex> vertex_span(_vertices);
@@ -170,11 +170,15 @@ public:
     ibuff.write_into_descriptor(writter, TriangleIndices::BINDING, ibuff._count,
                                 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
+    std::array<std::span<Blas>, 1> blas_span_tab{
+        std::span<Blas>{blas_vec}};
+
     return UploadedAccStruct{.instance_buffer = {std::move(instance_buffer)},
                              .primitive_buffers = {},
                              .vertex_buffer = {std::move(vbuff)},
                              .index_buffer = {std::move(ibuff)},
-                             .tlas = Tlas(ctx, std::move(blas_vec))};
+                             .blas = std::move(blas_vec),
+                             .scene = Tlas(ctx, blas_span_tab)};
   }
 
   ~SceneCollection() = default;

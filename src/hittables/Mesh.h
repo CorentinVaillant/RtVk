@@ -1,6 +1,7 @@
 #pragma once
 
-#include "graphics/GPUAccelerationStruct.h"
+#include "graphics/Blas.h"
+#include "graphics/Tlas.h"
 #include "hittables/Hittable.h"
 #include "hittables/TriangleRef.h"
 #include "renderer/renderer_utils.h"

@@ -7,12 +7,9 @@
 
 #include "graphics/vulkan_context.h"
 
-#include "renderer/CPURenderer.h"
 #include "renderer/GPURenderer.h"
 
 #include "test.h"
-
-constexpr bool GPU_RENDER = true;
 
 int main() {
   LOG(1, "Starting app !");
@@ -42,8 +39,8 @@ int main() {
 
     if (event.type == SDL_EVENT_KEY_DOWN &&
         event.key.scancode == SDL_SCANCODE_LEFT) {
-      curr_scene_index =
-          std::clamp((curr_scene_index - 1)%scenes.size(), 0lu, scenes.size() - 1);
+      curr_scene_index = std::clamp((curr_scene_index - 1) % scenes.size(), 0lu,
+                                    scenes.size() - 1);
       LOG(4, "Switched to scene {}", curr_scene_index);
       curr_scene = &scenes[curr_scene_index];
       render_changed = true;
@@ -51,8 +48,8 @@ int main() {
 
     if (event.type == SDL_EVENT_KEY_DOWN &&
         event.key.scancode == SDL_SCANCODE_RIGHT) {
-      curr_scene_index =
-          std::clamp((curr_scene_index + 1)%scenes.size(), 0lu, scenes.size() - 1);
+      curr_scene_index = std::clamp((curr_scene_index + 1) % scenes.size(), 0lu,
+                                    scenes.size() - 1);
       LOG(4, "Switched to scene {}", curr_scene_index);
       curr_scene = &scenes[curr_scene_index];
       render_changed = true;
@@ -114,13 +111,9 @@ int main() {
     if (runned == 0) {
       LOG(1, "Init engine...");
       test(ctx);
-      if (GPU_RENDER)
-        renderer =
-            std::make_unique<GPURenderer>(ctx, ctx.get_window_size().width,
-                                          ctx.get_window_size().height, RGBA);
-      else
-        renderer = std::make_unique<SimpleCPURenderer>(
-            ctx.get_window_size().width, ctx.get_window_size().height);
+      renderer = std::make_unique<GPURenderer>(
+          ctx, ctx.get_window_size().width, ctx.get_window_size().height, RGBA);
+
       LOG(1, "Engine init !");
     }
 
