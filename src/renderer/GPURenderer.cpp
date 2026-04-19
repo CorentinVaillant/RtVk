@@ -41,6 +41,26 @@ RendererUniforms GPURenderer::get_uniform(const Scene &scene) const {
           static_cast<float>(_imgBuffer.get_height()))};
 }
 
+GPURenderer::RenderBuffers
+GPURenderer::make_render_buffer(const Scene &scene) const {
+
+  RenderBuffers result{
+      .uniforms =
+          Buffer<RendererUniforms>(_ctx, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                   VMA_MEMORY_USAGE_CPU_TO_GPU),
+      .materials = Buffer<Material>(_ctx, scene._materials.size(),
+                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                    VMA_MEMORY_USAGE_CPU_TO_GPU),
+      .material_size = scene._materials.size(),
+  };
+
+  RendererUniforms uniform = get_uniform(scene);
+  result.uniforms.write(1, &uniform);
+  result.materials.write(scene._materials);
+
+  return result;
+}
+
 // -- Statics
 
 RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
@@ -50,10 +70,9 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
       .add_binding(SCENE_TLAS_BINDING, AccelerationStruct, {Raygen, ClosestHit})
       .add_binding(UNIFORMS_BINDING, UniformBuffer, Raygen)
       .add_binding(MATERIAL_BINDING, StorageBuffer, ClosestHit)
-      .add_binding(Instance::BINDING, StorageBuffer, ClosestHit)
-      .add_binding(Vertex::BINDING, StorageBuffer, ClosestHit)
-      .add_binding(TriangleIndices::BINDING, StorageBuffer,
-                   {Raygen, ClosestHit});
+      .add_binding(INSTANCES_BINDING, StorageBuffer, ClosestHit)
+      .add_binding(VERTEX_BINDING, StorageBuffer, ClosestHit)
+      .add_binding(INDEX_BINDING, StorageBuffer, ClosestHit);
 
   pipeline_descr.set_push_cst(ALL_RT_STAGE, 0, sizeof(RendererPushCst));
 
@@ -127,18 +146,7 @@ void GPURenderer::render(const Scene &scene) {
                    VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                    General);
 
-  Buffer<RendererUniforms> uniform_buffer(
-      _ctx, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-  RendererUniforms uniform = get_uniform(scene);
-  uniform_buffer.write(1, &uniform);
-
-  Buffer<Material> material_buffer(_ctx, scene._materials.size(),
-                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                   VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-  material_buffer.write(scene._materials);
-
+  RenderBuffers buffers = make_render_buffer(scene);
   DescriptorWriter writter;
   result_img.write(writter, 0, _pipeline.get_sampler(), StorageImage);
 
@@ -150,11 +158,12 @@ void GPURenderer::render(const Scene &scene) {
       writter, 1, 1, 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
       &acc_write_descr_alloc);
 
-  uniform_buffer.write_into_descriptor(writter, 2, 1, 0,
-                                       VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+  buffers.uniforms.write_into_descriptor(writter, UNIFORMS_BINDING, 1, 0,
+                                         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-  material_buffer.write_into_descriptor(writter, 3, scene._materials.size(), 0,
-                                        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+  buffers.materials.write_into_descriptor(writter, MATERIAL_BINDING,
+                                          buffers.material_size, 0,
+                                          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
   writter.update_set(_ctx._device, *descr_set);
 

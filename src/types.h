@@ -85,7 +85,10 @@ constexpr bool THROW_ON_MACRO_ERR = true;
     if (THROW_ON_MACRO_ERR)                                                    \
       throw std::runtime_error("Log err");                                     \
   }
-
+  
+#define ASSERT_ERR(expr, ...)                                                  \
+  if (!(expr))                                                                 \
+  LOGERR(__VA_ARGS__)
 #define VK_CHECK(x)                                                            \
   do {                                                                         \
     VkResult err = x;                                                          \
