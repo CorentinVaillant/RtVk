@@ -6,7 +6,7 @@
 #include "types.h"
 #include "vma_usage.h"
 #include <vector>
-#include <volk/volk.h>
+#include <volk.h>
 
 class Image;
 

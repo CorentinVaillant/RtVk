@@ -8,7 +8,7 @@
 #include <ios>
 #include <span>
 #include <vector>
-#include <volk/volk.h>
+#include <volk.h>
 
 class Shader {
 public:

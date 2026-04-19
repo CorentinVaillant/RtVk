@@ -5,7 +5,7 @@
 #include "hittables/TriangleRef.h"
 #include "renderer/renderer_utils.h"
 #include <fastgltf/core.hpp>
-#include <volk/volk.h>
+#include <volk.h>
 
 class Mesh : public IHittable {
   // -- Attributs

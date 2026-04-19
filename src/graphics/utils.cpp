@@ -1,7 +1,7 @@
 #include "graphics/utils.h"
 
 #include "types.h"
-#include <volk/volk.h>
+#include <volk.h>
 
 // -- Utils functions --
 

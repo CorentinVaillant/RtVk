@@ -8,7 +8,7 @@
 #include <cassert>
 #include <concepts>
 #include <cstdint>
-#include <volk/volk.h>
+#include <volk.h>
 
 // -- ComputePipeline --
 

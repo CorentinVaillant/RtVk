@@ -1,6 +1,6 @@
 implementing utils;
 
-__include "types";
+__include math;
 
 // -- this part is get from : https://github.com/nvpro-samples/vk_raytracing_tutorial_KHR/tree/master/ray_tracing_jitter_cam
 
@@ -44,6 +44,12 @@ float rnd(inout uint prev)
 public float random(inout uint seed, float min, float max)
 {
     return min + (max - min) * rnd(seed);
+}
+
+/// @brief Generate a random uint number between min and max
+public uint random(inout uint seed, uint min, uint max)
+{
+    return uint(random(seed, float(min), float(max))); // ? probably a better way !
 }
 
 public Vec2 random2(inout uint seed, float min, float max)

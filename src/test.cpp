@@ -17,7 +17,7 @@
 
 #ifdef NTEST
 #include "graphics/utils.h"
-#include <volk/volk.h>
+#include <volk.h>
 
 struct PushCstTest {
   glm::vec2 start = glm::vec2(0);

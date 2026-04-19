@@ -1,7 +1,7 @@
 #include "vma_usage.h"
 
 #define VK_NO_PROTOTYPES
-#include <volk/volk.h>
+#include <volk.h>
 
 #define VMA_STATIC_VULKAN_FUNCTIONS  0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1

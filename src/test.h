@@ -4,7 +4,7 @@
 #include "types.h"
 
 #ifdef NTEST
-#include <volk/volk.h>
+#include <volk.h>
 
 void test_descriptor_allocator(VulkanContext &ctx);
 

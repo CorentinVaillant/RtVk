@@ -3,7 +3,7 @@
 #include "graphics/raii_graphic.h"
 #include "graphics/vulkan_context.h"
 #include "types.h"
-#include <volk/volk.h>
+#include <volk.h>
 
 class VulkanContext;
 

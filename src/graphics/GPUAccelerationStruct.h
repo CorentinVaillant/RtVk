@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <optional>
 
-#include <volk/volk.h>
+#include <volk.h>
 #include <vulkan/vulkan_core.h>
 
 class Blas {

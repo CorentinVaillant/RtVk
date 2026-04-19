@@ -1,8 +1,9 @@
 #include "GPURenderer.h"
 
-#include <volk/volk.h>
+#include <volk.h>
 
 #include "graphics/Image.h"
+#include "graphics/Shaders.h"
 #include "graphics/pipelines.h"
 #include "graphics/raii_graphic.h"
 #include "graphics/utils.h"
@@ -12,6 +13,8 @@
 #include "hittables/Hittable.h"
 #include "hittables/TriangleRef.h"
 #include "renderer/renderer_utils.h"
+
+#include "shaders/closest_hit.slang.h"
 #include "shaders/simple_rt.slang.h"
 
 GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
@@ -23,10 +26,11 @@ GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
 RendererPushCst GPURenderer::get_push_cst(const Scene &scene) const {
   return RendererPushCst{
       ._cam = scene._camera[scene._active_camera],
-      ._lightDir = glm::vec4(1, 0, 0, 0),
       ._renderWidth = static_cast<float>(_imgBuffer.get_width()),
       ._renderHeight = static_cast<float>(_imgBuffer.get_height()),
       ._time = scene._time,
+      .max_depth = 5,
+      .spp = 250,
   };
 }
 
@@ -42,12 +46,12 @@ RendererUniforms GPURenderer::get_uniform(const Scene &scene) const {
 RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   PipelineDescriptor pipeline_descr;
 
-  pipeline_descr.add_binding(0, StorageImage, Raygen)
-      .add_binding(1, AccelerationStruct, {Raygen, ClosestHit})
-      .add_binding(2, UniformBuffer, Raygen)
-      .add_binding(3, StorageBuffer, ClosestHit)
-      .add_binding(Instance::BINDING, StorageBuffer,  ClosestHit)
-      .add_binding(Vertex::BINDING, StorageBuffer,  ClosestHit)
+  pipeline_descr.add_binding(RESULT_IMAGE_BINDING, StorageImage, Raygen)
+      .add_binding(SCENE_TLAS_BINDING, AccelerationStruct, {Raygen, ClosestHit})
+      .add_binding(UNIFORMS_BINDING, UniformBuffer, Raygen)
+      .add_binding(MATERIAL_BINDING, StorageBuffer, ClosestHit)
+      .add_binding(Instance::BINDING, StorageBuffer, ClosestHit)
+      .add_binding(Vertex::BINDING, StorageBuffer, ClosestHit)
       .add_binding(TriangleIndices::BINDING, StorageBuffer,
                    {Raygen, ClosestHit});
 
@@ -55,9 +59,11 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
 
   // Shaders
   Shader rendering_shader = Shader(ctx, SIMPLE_RT_SPIRV);
-  pipeline_descr.add_shader_stage(Raygen, rendering_shader, "rayGen")
-      .add_shader_stage(Miss, rendering_shader, "miss")
-      .add_shader_stage(ClosestHit, rendering_shader, "closestHit");
+  Shader closest_hit = Shader(ctx, CLOSEST_HIT_SPIRV);
+  pipeline_descr
+      .add_shader_stage(Raygen, rendering_shader, "rayGen")  /*0*/
+      .add_shader_stage(Miss, rendering_shader, "miss")      /*1*/
+      .add_shader_stage(ClosestHit, closest_hit, "meshHit"); /*2*/
 
   // Shader groups
   RtPipelineCreateInfos create_info;

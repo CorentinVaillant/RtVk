@@ -14,10 +14,14 @@ std::vector<Scene> Scene::load_from_gltf(std::filesystem::path gltf_path) {
     return {};
   }
 
-  fastgltf::Parser parser;
-  auto asset_expected =
-      parser.loadGltf(gltf_expected.get(), gltf_path.parent_path(),
-                      fastgltf::Options::LoadExternalBuffers);
+  constexpr fastgltf::Options LOAD_OPTIONS =
+      fastgltf::Options::LoadExternalBuffers;
+  constexpr fastgltf::Extensions EXTENSIONS =
+      fastgltf::Extensions::KHR_lights_punctual;
+
+  fastgltf::Parser parser(EXTENSIONS);
+  auto asset_expected = parser.loadGltf(gltf_expected.get(),
+                                        gltf_path.parent_path(), LOAD_OPTIONS);
   if (asset_expected.error() != fastgltf::Error::None) {
     LOGWARN("Could not parse gltf file: {}",
             static_cast<uint64_t>(asset_expected.error()));

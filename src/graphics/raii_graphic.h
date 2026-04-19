@@ -1,7 +1,7 @@
 #pragma once
 
 #include "types.h"
-#include <volk/volk.h>
+#include <volk.h>
 
 template <typename T, auto DestroyFun> class DestructorFromDevice {
 public:

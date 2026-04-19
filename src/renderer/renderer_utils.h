@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdlib>
-#include <volk/volk.h>
+#include <volk.h>
 
 #include "types.h"
 

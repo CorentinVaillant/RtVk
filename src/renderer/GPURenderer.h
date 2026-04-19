@@ -9,7 +9,6 @@
 
 struct RendererPushCst {
   Camera _cam;
-  glm::vec4 _lightDir;
   float _renderWidth, _renderHeight, _time;
   uint32_t max_depth = 5;
   uint32_t spp = 100;
@@ -46,4 +45,9 @@ private:
   RtPipeline _pipeline;
 
   DescriptorAllocator _descr_aloc;
+
+  static constexpr uint32_t RESULT_IMAGE_BINDING = 0;
+  static constexpr uint32_t SCENE_TLAS_BINDING = 1;
+  static constexpr uint32_t UNIFORMS_BINDING = 2;
+  static constexpr uint32_t MATERIAL_BINDING = 3;
 };

@@ -1,6 +1,6 @@
 #pragma once
 #include <initializer_list>
-#include <volk/volk.h>
+#include <volk.h>
 
 // features
 constexpr VkPhysicalDeviceAccelerationStructureFeaturesKHR REQUIRED_ACC_STRUCT_FEATURES = {
