@@ -7,11 +7,9 @@
 #include "graphics/pipelines.h"
 #include "graphics/raii_graphic.h"
 #include "graphics/vulkan_context.h"
-#include "hittables/Hittable.h"
 #include "types.h"
 #include <cassert>
-#include <utility>
-#include <vector>
+
 
 #include "shaders/mandelbrot.slang.h"
 

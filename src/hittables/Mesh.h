@@ -1,17 +1,14 @@
 #pragma once
 
 #include "graphics/Blas.h"
-#include "graphics/Tlas.h"
-#include "hittables/Hittable.h"
 #include "hittables/TriangleRef.h"
 #include "renderer/renderer_utils.h"
 #include <fastgltf/core.hpp>
 #include <volk.h>
 
-class Mesh : public IHittable {
+class Mesh  {
   // -- Attributs
 private:
-  std::span<const Vertex> _vertices;
   std::vector<TriangleIndices> _indices;
   size_t _material_index;
 
@@ -48,7 +45,6 @@ public:
 
   // -- IHittable impl
 public:
-  bool hit(Ray r, Interval ray_t, HitRecord *records) const override;
-  BBox get_bbox() const override;
-  HittableInfo gpu_info() const override;
+  bool hit(Ray r, Interval ray_t, HitRecord *records, std::span<const Vertex> vertex_buffer) const;
+  BBox get_bbox() const;
 };

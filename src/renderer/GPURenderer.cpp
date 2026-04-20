@@ -10,8 +10,6 @@
 #include "graphics/vma_usage.h"
 #include "graphics/vulkan_context.h"
 
-#include "hittables/Hittable.h"
-#include "hittables/TriangleRef.h"
 #include "renderer/renderer_utils.h"
 
 #include "shaders/closest_hit.slang.h"

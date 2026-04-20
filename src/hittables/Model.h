@@ -3,11 +3,9 @@
 #include "fastgltf/types.hpp"
 #include "graphics/Buffer.h"
 #include "graphics/vulkan_context.h"
-#include "hittables/Hittable.h"
 #include "hittables/Mesh.h"
 #include "hittables/TriangleRef.h"
 #include "renderer/renderer_utils.h"
-#include <cstddef>
 #include <glm/gtc/quaternion.hpp>
 
 static inline glm::mat4
@@ -41,7 +39,7 @@ gltf_transform_to_glm(const std::variant<fastgltf::TRS, fastgltf::math::fmat4x4>
   return result;
 }
 
-class Model : public IHittable {
+class Model  {
   struct ModelNode {
     std::optional<Mesh> mesh;
     glm::mat4 world_transform = glm::mat4(1);
@@ -107,14 +105,14 @@ private:
 
   // -- IHitable impl --
 public:
-  bool hit(Ray r, Interval ray_t, HitRecord *records) const override {
+  bool hit(Ray r, Interval ray_t, HitRecord *records,std::span<const Vertex> vertex_buffer) const {
     bool hit_anything = false;
 
     for (const ModelNode &node : _nodes) {
       if (!node.mesh.has_value())
         continue;
       const Mesh &mesh = node.mesh.value();
-      if (mesh.get_bbox().hit(r, ray_t) && mesh.hit(r, ray_t, records)) {
+      if (mesh.get_bbox().hit(r, ray_t) && mesh.hit(r, ray_t, records,vertex_buffer)) {
         ray_t.max = records->t;
         hit_anything = true;
       }
@@ -123,9 +121,7 @@ public:
     return hit_anything;
   }
 
-  BBox get_bbox() const override { return _bbox; }
-
-  HittableInfo gpu_info() const override { return {}; }
+  BBox get_bbox() const { return _bbox; }
 
   void upload_meshes(VulkanContext &ctx, const Buffer<> &vbuff,
                      const Buffer<> &ibuff, size_t index_offset,

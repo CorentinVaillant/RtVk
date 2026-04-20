@@ -58,6 +58,10 @@ struct BBox {
         y(a.y <= b.y ? Interval(a.y, b.y) : Interval(b.y, a.y)),
         z(a.z <= b.z ? Interval(a.z, b.z) : Interval(b.z, a.z)) {}
 
+  constexpr BBox(glm::vec3 pos, float radius)
+      : BBox(pos - radius /* * glm::vec3(1) */,
+             pos + radius /* * glm::vec3(1) */) {}
+
   constexpr BBox(BBox b1, BBox b2)
       : x(b1.x.connexe_union(b2.x)), y(b1.y.connexe_union(b2.y)),
         z(b1.z.connexe_union(b2.z)) {}

@@ -2,17 +2,28 @@
 
 #include "fastgltf/tools.hpp"
 #include "fastgltf/types.hpp"
+#include "graphics/Tlas.h"
 #include "graphics/vma_usage.h"
-#include "hittables/Hittable.h"
 #include "hittables/Model.h"
 #include "hittables/TriangleRef.h"
 #include "renderer/renderer_utils.h"
+#include <vector>
 
-class SceneCollection : public IAccStruct {
+struct UploadedAccStruct {
+  std::optional<Buffer<>> instance_buffer;
+  std::vector<Buffer<>> primitive_buffers;
+  std::optional<Buffer<>> vertex_buffer;
+  std::optional<Buffer<>> index_buffer;
+  std::vector<Blas> blas;
+  Tlas scene;
+};
+
+
+class SceneCollection {
   // -- Attributs --
 private:
   std::vector<Vertex> _vertices;
-  HittableVector<Model> _models;
+  std::vector<Model> _models;
   std::vector<size_t> _mesh_vertex_offsets = {};
 
   // -- Constructors --
@@ -96,16 +107,9 @@ private:
 
   // -- IAccStruct impl
 public:
-  uint32_t hit(Ray r, Interval ray_t, HitRecord *records) const override {
-    return _models.hit(r, ray_t, records);
-  }
-  std::optional<const IHittable *> get_hitted(uint32_t index) const override {
-    return _models.get_hitted(index);
-  }
-
   // vulkan
   UploadedAccStruct upload_to_gpu(VulkanContext &ctx,
-                                  DescriptorWriter &writter) const override {
+                                  DescriptorWriter &writter) const {
 
     // Upload vertices into GPU
     Buffer<> vbuff(
@@ -120,12 +124,12 @@ public:
 
     // Upload indices into GPU
     size_t nb_triangle = 0;
-    for (const auto &model : _models.vec())
+    for (const auto &model : _models)
       nb_triangle += model.triangle_count();
 
     std::vector<TriangleIndices> triangles;
     triangles.reserve(nb_triangle);
-    for (const auto &model : _models.vec()) {
+    for (const auto &model : _models) {
       model.write_indices_into_vec(triangles);
     }
 
@@ -146,7 +150,7 @@ public:
     instance_vec.reserve(_models.size());
 
     size_t index_offset = 0;
-    for (const Model &model : _models.vec()) {
+    for (const Model &model : _models) {
       model.upload_meshes(ctx, vbuff, ibuff, index_offset, blas_vec,
                           instance_vec);
       index_offset += model.triangle_count();
