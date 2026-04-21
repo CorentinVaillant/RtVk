@@ -26,7 +26,8 @@ public:
   std::optional<BlasBuffer<uint8_t>> _blasBuffer;
   VkAccelerationStructureKHR _blas = VK_NULL_HANDLE;
 
-  uint32_t _instanceCustomIndex = 0;
+  uint32_t _instanceCustomIndex = ~0u;
+  bool _isProcedural;
   glm::mat4 _transform;
 
   // -- Constructors
@@ -36,9 +37,11 @@ public:
   Blas() = delete;
 
   Blas(VulkanContext &ctx, std::span<VkAabbPositionsKHR> aabbs,
-       glm::mat4 transform)
+       uint32_t instance_id,
+       glm::mat4 transform = glm::mat4(1))
       : _ctxDevice(ctx._device), _geoBuffer(upload_buffer(ctx, aabbs)),
-        _blasBuffer(std::nullopt), _transform(transform) {
+        _blasBuffer(std::nullopt), _instanceCustomIndex(instance_id),
+        _isProcedural(true), _transform(transform) {
 
     VkDeviceOrHostAddressConstKHR data_adress = {
         _geoBuffer->get_device_adresse(_ctxDevice)};
@@ -67,10 +70,11 @@ public:
 
   Blas(VulkanContext &ctx, std::span<const TriangleIndices> indices,
        const Buffer<> &vbuff, const Buffer<> &ibuff, size_t instance_id,
-       size_t index_offset, glm::mat4 transform)
+       size_t index_offset, glm::mat4 transform,
+       uint32_t hit_group = TriangleIndices::HIT_GROUP)
       : _ctxDevice(ctx._device), _geoBuffer(std::nullopt), // no owned buffer
         _blasBuffer(std::nullopt), _instanceCustomIndex(instance_id),
-        _transform(transform) {
+        _isProcedural(false), _transform(transform) {
 
     static_assert(sizeof(TriangleIndices) == 3 * sizeof(uint32_t),
                   "TriangleIndices must be tightly packed");
@@ -103,7 +107,7 @@ public:
       : _ctxDevice(rval._ctxDevice), _geoBuffer(std::move(rval._geoBuffer)),
         _blasBuffer(std::move(rval._blasBuffer)), _blas((rval._blas)),
         _instanceCustomIndex(rval._instanceCustomIndex),
-        _transform(rval._transform) {
+        _isProcedural(rval._isProcedural), _transform(rval._transform) {
     rval._ctxDevice = VK_NULL_HANDLE;
     rval._blas = VK_NULL_HANDLE;
   }
@@ -115,6 +119,7 @@ public:
       this->_blasBuffer = std::move(rval._blasBuffer);
       this->_blas = rval._blas;
       this->_instanceCustomIndex = rval._instanceCustomIndex;
+      this->_isProcedural = rval._isProcedural;
       this->_transform = rval._transform;
 
       rval._blas = VK_NULL_HANDLE;

@@ -30,11 +30,15 @@ enum class LightType : uint32_t {
 struct alignas(STD140_ALIGNEMENT) Light {
   LightType type;
   uint32_t start_index, end_index;
+  uint32_t _pad;
+  
   glm::vec4 emission;
+  
   glm::vec3 position_forward_vec;
   float radius_angle;
-
+  
   static constexpr uint32_t BINDING = 8;
+  static constexpr uint32_t HIT_GROUP = 2;
 
   Light(LightPoint p)
       : type(LightType::Point), emission(p.emission),
@@ -48,7 +52,7 @@ struct alignas(STD140_ALIGNEMENT) Light {
       : type(LightType::Sun), emission(s.emission),
         position_forward_vec(s.forward_vec) {}
 
-  std::optional<BBox> get_bbox() const{
+  std::optional<BBox> get_bbox() const {
     if (type == LightType::Point)
       return BBox(position_forward_vec, radius_angle).padded();
     else

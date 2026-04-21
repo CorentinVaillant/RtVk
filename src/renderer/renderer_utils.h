@@ -159,7 +159,7 @@ struct alignas(STD140_ALIGNEMENT) Instance {
   uint32_t _materialId;
   uint32_t _indexOffset;
 
-  static constexpr uint32_t BINDING = 4;
+  static constexpr uint32_t BINDING = 5;
 };
 
 struct alignas(16) Vertex {
@@ -171,7 +171,7 @@ struct alignas(16) Vertex {
   glm::vec2 uv() const { return glm::vec2(u, v); }
 
   static constexpr auto VK_FORMAT = VK_FORMAT_R32G32B32_SFLOAT;
-  static constexpr uint32_t BINDING = 5;
+  static constexpr uint32_t BINDING = 6;
 };
 
 struct alignas(16) Material {

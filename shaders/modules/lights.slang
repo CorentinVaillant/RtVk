@@ -77,7 +77,7 @@ public struct LightSun
     }
 };
 
-public enum LightType : uint
+public enum LightType : uint32_t
 {
     Point = 0u,
     Mesh = 1u,
@@ -87,39 +87,43 @@ public enum LightType : uint
 public struct Light
 {
     public LightType type;
-    uint start_index = 0, end_index = 0;
-    Vec4 emission = 0;
-    Vec3 position_forward_vec = 0;
-    float radius_angle = 0;
-
-    void assertions()
+    public uint32_t start_index, end_index;
+    public uint32_t _pad;
+    
+    public Vec4 emission;
+    
+    public Vec3 position_forward_vec;
+    public float radius_angle;
+    
+    public void assertions()
     {
-        static_assert(sizeof(This) == 48, "Size != 48");
+        constexpr size_t size = sizeof(This);
+        static_assert(size == 48, "Size != 48");
     }
 
-    __init(LightPoint p)
-    {
+    // __init(LightPoint p)
+    // {
 
-        this.type = LightType::Point;
-        this.emission = p.emission;
-        this.position_forward_vec = p.position;
-        this.radius_angle = p.radius;
-    }
+    //     this.type = LightType::Point;
+    //     this.emission = p.emission;
+    //     this.position_forward_vec = p.position;
+    //     this.radius_angle = p.radius;
+    // }
 
-    __init(LightMesh m)
-    {
-        this.type = LightType::Mesh;
-        this.emission = m.emission;
-        this.start_index = m.start_index;
-        this.end_index = m.end_index;
-    }
+    // __init(LightMesh m)
+    // {
+    //     this.type = LightType::Mesh;
+    //     this.emission = m.emission;
+    //     this.start_index = m.start_index;
+    //     this.end_index = m.end_index;
+    // }
 
-    __init(LightSun s)
-    {
-        this.type = LightType::Sun;
-        this.emission = s.emission;
-        this.position_forward_vec = s.forward_vec;
-    }
+    // __init(LightSun s)
+    // {
+    //     this.type = LightType::Sun;
+    //     this.emission = s.emission;
+    //     this.position_forward_vec = s.forward_vec;
+    // }
 
     public LightPoint get_point_light()
     {

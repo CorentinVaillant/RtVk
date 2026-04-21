@@ -12,7 +12,8 @@ class TriangleIndices {
 public:
   friend Mesh;
 
-  static constexpr uint32_t BINDING = 6;
+  static constexpr uint32_t BINDING = 7;
+  static constexpr uint32_t HIT_GROUP = 0;
 
 private:
   // -- Attributs --

@@ -15,8 +15,7 @@ private:
   std::optional<TlasBuffer<uint8_t>> _tlasBuffer;
   VkAccelerationStructureKHR _tlas = VK_NULL_HANDLE;
 
-  
-  public:
+public:
   using BlasSpanTab = std::span<std::span<Blas>>;
   Tlas(VulkanContext &ctx, BlasSpanTab blas_span_tab)
       : _ctxDevice(ctx._device),
@@ -32,7 +31,8 @@ private:
             .instanceCustomIndex =
                 blas._instanceCustomIndex, // InstanceId() call
             .mask = 0xff,
-            .instanceShaderBindingTableRecordOffset = 0, // hit group 0
+            .instanceShaderBindingTableRecordOffset =
+                blas._isProcedural ? 1u : 0u,
             .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
             .accelerationStructureReference = blas.get_device_addres(),
         });

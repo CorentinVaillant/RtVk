@@ -101,9 +101,6 @@ int main() {
   });
 
   VulkanContext::run([&](VulkanContext &ctx) {
-    // runned once
-    if (runned == 0) {
-    }
 
     // float runtime_second = float(runtime.count()) / 1e6;
     TimePoint begin = steady_clock::now();

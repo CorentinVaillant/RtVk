@@ -1,6 +1,7 @@
 #include "GPURenderer.h"
 
 #include <volk.h>
+#include <vulkan/vulkan_core.h>
 
 #include "graphics/Image.h"
 #include "graphics/Shaders.h"
@@ -13,6 +14,7 @@
 #include "renderer/renderer_utils.h"
 
 #include "shaders/closest_hit.slang.h"
+#include "shaders/intersections.slang.h"
 #include "shaders/simple_rt.slang.h"
 
 GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
@@ -66,26 +68,32 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
 
   pipeline_descr.add_binding(RESULT_IMAGE_BINDING, StorageImage, Raygen)
       .add_binding(SCENE_TLAS_BINDING, AccelerationStruct, {Raygen, ClosestHit})
+      .add_binding(LIGHT_TLAS_BINDING, AccelerationStruct, {Raygen, ClosestHit})
       .add_binding(UNIFORMS_BINDING, UniformBuffer, Raygen)
       .add_binding(MATERIAL_BINDING, StorageBuffer, ClosestHit)
       .add_binding(INSTANCES_BINDING, StorageBuffer, ClosestHit)
       .add_binding(VERTEX_BINDING, StorageBuffer, ClosestHit)
-      .add_binding(INDEX_BINDING, StorageBuffer, ClosestHit);
+      .add_binding(INDEX_BINDING, StorageBuffer, ClosestHit)
+      .add_binding(LIGHT_BUFFER_BINDING, StorageBuffer, ALL_RT_STAGE);
 
   pipeline_descr.set_push_cst(ALL_RT_STAGE, 0, sizeof(RendererPushCst));
 
   // Shaders
-  Shader rendering_shader = Shader(ctx, SIMPLE_RT_SPIRV);
+  Shader main_shader = Shader(ctx, SIMPLE_RT_SPIRV);
   Shader closest_hit = Shader(ctx, CLOSEST_HIT_SPIRV);
+  Shader intersection = Shader(ctx, INTERSECTIONS_SPIRV);
   pipeline_descr
-      .add_shader_stage(Raygen, rendering_shader, "rayGen")  /*0*/
-      .add_shader_stage(Miss, rendering_shader, "miss")      /*1*/
-      .add_shader_stage(ClosestHit, closest_hit, "meshHit"); /*2*/
+      .add_shader_stage(Raygen, main_shader, "rayGen")                   /*0*/
+      .add_shader_stage(Miss, main_shader, "miss")                       /*1*/
+      .add_shader_stage(ClosestHit, closest_hit, "meshHit")              /*2*/
+      .add_shader_stage(Intersection, intersection, "lightIntersection") /*3*/
+      .add_shader_stage(ClosestHit, closest_hit, "lightHit")             /*4*/
+      ;
 
   // Shader groups
   RtPipelineCreateInfos create_info;
   create_info.max_rt_depth = 10;
-  create_info.groups.resize(3);
+  create_info.groups.resize(4);
   create_info.groups[0] = VkRayTracingShaderGroupCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
       .pNext = nullptr,
@@ -100,8 +108,8 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
       .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
       .pNext = nullptr,
       .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-      .generalShader = 1,                       // miss
-      .closestHitShader = VK_SHADER_UNUSED_KHR, // miss
+      .generalShader = 1, // miss
+      .closestHitShader = VK_SHADER_UNUSED_KHR,
       .anyHitShader = VK_SHADER_UNUSED_KHR,
       .intersectionShader = VK_SHADER_UNUSED_KHR,
   };
@@ -116,6 +124,16 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
       .intersectionShader = VK_SHADER_UNUSED_KHR,
   };
 
+  create_info.groups[3] = VkRayTracingShaderGroupCreateInfoKHR{
+      .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+      .pNext = nullptr,
+      .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR,
+      .generalShader = VK_SHADER_UNUSED_KHR,
+      .closestHitShader = 4,
+      .anyHitShader = VK_SHADER_UNUSED_KHR,
+      .intersectionShader = 3,
+  };
+
   return RtPipeline(ctx, pipeline_descr, create_info);
 }
 
@@ -124,8 +142,8 @@ DescriptorAllocator GPURenderer::create_descr_aloc(VulkanContext &ctx) {
   DescriptorAllocator::PoolSizeRatio sizes_ratio[] = {
       {.type = StorageImage, .ratio = 3},
       {.type = AccelerationStruct, .ratio = 5},
-      {.type = UniformBuffer, .ratio = 1},
-      {.type = StorageBuffer, .ratio = 4},
+      {.type = UniformBuffer, .ratio = 2},
+      {.type = StorageBuffer, .ratio = 6},
   };
 
   return DescriptorAllocator(ctx, 1, sizes_ratio);
@@ -136,7 +154,7 @@ void GPURenderer::render(const Scene &scene) {
   VkDescriptorSetLayout descr_set_layout = _pipeline.get_descr_set_layout();
   Raii_VkDescriptorSet descr_set = _descr_aloc.allocate(descr_set_layout);
 
-  auto push_cst = get_push_cst(scene);
+  RendererPushCst push_cst = get_push_cst(scene);
 
   glm::uvec3 draw_region = {_imgBuffer.get_width(), _imgBuffer.get_height(), 1};
 
@@ -151,10 +169,16 @@ void GPURenderer::render(const Scene &scene) {
   UploadedAccStruct gpu_acc_struct =
       scene._collection.upload_to_gpu(_ctx, writter);
 
-  auto acc_write_descr_alloc = gpu_acc_struct.scene.get_write_descr_alloc();
+  auto acc_write_descr_alloc_scene = gpu_acc_struct.scene.get_write_descr_alloc();
+  auto acc_write_descr_alloc_lights = gpu_acc_struct.lights_scene.get_write_descr_alloc();
+
   gpu_acc_struct.scene.get_buffer().write_into_descriptor(
-      writter, 1, 1, 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-      &acc_write_descr_alloc);
+      writter, SCENE_TLAS_BINDING, 1, 0,
+      VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, &acc_write_descr_alloc_scene);
+
+  gpu_acc_struct.lights_scene.get_buffer().write_into_descriptor(
+      writter, LIGHT_TLAS_BINDING, 1, 0,
+      VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, &acc_write_descr_alloc_lights);
 
   buffers.uniforms.write_into_descriptor(writter, UNIFORMS_BINDING, 1, 0,
                                          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);

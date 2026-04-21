@@ -7,46 +7,6 @@
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/math.hpp>
 
-void load_scene_lights(std::vector<Light> &out, fastgltf::Asset &asset,
-                       fastgltf::Node &node,
-                       glm::mat4 transform = glm::mat4(1)) {
-
-  if (node.lightIndex.has_value()) {
-    auto &gltf_light = asset.lights[node.lightIndex.value()];
-
-    transform *= gltf_transform_to_glm(node.transform);
-
-    if (gltf_light.type == fastgltf::LightType::Point) {
-
-      auto e = gltf_light.color * gltf_light.intensity;
-      glm::vec3 pos = xyz(glm::vec4(0, 0, 0, 1) * transform);
-      float radius = gltf_light.range.value_or(0);
-
-      out.emplace_back(LightPoint{
-          .emission = glm::vec4{e[0], e[1], e[2], 0.f},
-          .position = pos,
-          .radius = radius,
-      });
-      LOG(5, "Loaded light : {}", node.name);
-    } else if (gltf_light.type == fastgltf::LightType::Directional) {
-      auto e = gltf_light.color * gltf_light.intensity;
-      glm::vec3 pos = xyz(glm::vec4(0, 0, 0, 1) * transform);
-      glm::vec3 direction = -glm::normalize(pos); // pos -> world_ origin
-
-      out.emplace_back(LightSun{
-          .emission = glm::vec4{e[0], e[1], e[2], 0.f},
-          .forward_vec = direction,
-          .angle = 0.5f, // hardcoded, gltf does not provide smt like that
-
-      });
-    }
-
-    for (size_t child_idx : node.children) {
-      load_scene_lights(out, asset, asset.nodes[child_idx], transform);
-    }
-  }
-}
-
 std::vector<Scene> Scene::load_from_gltf(std::filesystem::path gltf_path) {
   auto gltf_expected = fastgltf::GltfDataBuffer::FromPath(gltf_path);
   if (gltf_expected.error() != fastgltf::Error::None) {
@@ -138,15 +98,6 @@ std::vector<Scene> Scene::load_from_gltf(std::filesystem::path gltf_path) {
   scenes.reserve(asset.scenes.size());
 
   for (fastgltf::Scene &gltf_scene : asset.scenes) {
-
-    // Getting lights to the scene
-    std::vector<Light> lights;
-    for (size_t node_idx : gltf_scene.nodeIndices) {
-      auto &node = asset.nodes[node_idx];
-      load_scene_lights(lights, asset, node);
-    }
-    // add a dummy light
-    lights.push_back(LightPoint{glm::vec4{0}, glm::vec3(9999), 0.1});
 
     // Build geometry into the collection structure
     scenes.emplace_back(Scene{

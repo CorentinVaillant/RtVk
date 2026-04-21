@@ -12,7 +12,6 @@ void meshHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes 
     uint tri_index = PrimitiveIndex();
     RendererInstance instance = instances[InstanceID()];
     uint3 idx = indexBuffer[tri_index + instance.indexOffset];
-    printf("MeshHit[%u]! --", InstanceID());
 
     Vertex v0 = vertexBuffer[idx.x];
     Vertex v1 = vertexBuffer[idx.y];
@@ -96,8 +95,9 @@ void meshPdfHit(inout PdfPayload payload, in BuiltInTriangleIntersectionAttribut
 }
 
 [shader("closesthit")]
-void LightHit(inout RayPayload payload, in LightAttribut attr_in)
+void lightHit(inout RayPayload payload, in LightAttribut attr_in)
 {
-    payload.color = Color(1, 0, 0, 1);
+    payload.color = attr_in.emision;
+    payload.color = Color(1,0,0,1);
     return;
 }

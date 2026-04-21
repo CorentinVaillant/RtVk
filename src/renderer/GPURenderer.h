@@ -22,6 +22,8 @@ struct alignas(STD140_ALIGNEMENT) RendererUniforms {
 
 class GPURenderer : public Renderer {
 
+  NO_COPY(GPURenderer);
+
   struct RenderBuffers {
     Buffer<RendererUniforms> uniforms;
     Buffer<Material> materials;
@@ -58,9 +60,11 @@ private:
 
   static constexpr uint32_t RESULT_IMAGE_BINDING = 0;
   static constexpr uint32_t SCENE_TLAS_BINDING = 1;
-  static constexpr uint32_t UNIFORMS_BINDING = 2;
-  static constexpr uint32_t MATERIAL_BINDING = 3;
+  static constexpr uint32_t LIGHT_TLAS_BINDING = 2;
+  static constexpr uint32_t UNIFORMS_BINDING = 3;
+  static constexpr uint32_t MATERIAL_BINDING = 4;
   static constexpr uint32_t INSTANCES_BINDING = Instance::BINDING;
   static constexpr uint32_t VERTEX_BINDING = Vertex::BINDING;
   static constexpr uint32_t INDEX_BINDING = TriangleIndices::BINDING;
+  static constexpr uint32_t LIGHT_BUFFER_BINDING = 8;
 };
