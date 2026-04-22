@@ -142,9 +142,11 @@ private:
         });
         LOG(5, "Loaded light : {}", node.name);
       } else if (gltf_light.type == fastgltf::LightType::Directional) {
+        glm::vec4 local_dir{0, 0, -1, 0};
+        glm::vec4 world_dir = world_trans * local_dir;
+        glm::vec3 direction = glm::normalize(glm::vec3(world_dir));
+
         auto e = gltf_light.color * gltf_light.intensity;
-        glm::vec3 pos = xyz(glm::vec4(0, 0, 0, 1) * world_trans);
-        glm::vec3 direction = -glm::normalize(pos); // pos -> world_ origin
 
         out.emplace_back(LightSun{
             .emission = glm::vec4{e[0], e[1], e[2], 0.f},
@@ -159,7 +161,6 @@ private:
     }
   }
 
-  // -- IAccStruct impl
 public:
   // vulkan
   UploadedAccStruct upload_to_gpu(VulkanContext &ctx,
@@ -244,7 +245,7 @@ public:
       if (bbox.has_value()) {
         bbox_array[0] = light.get_bbox()->to_vk();
         blas_vec.emplace_back(
-            Blas(ctx, bbox_array, nb_of_light, Light::HIT_GROUP));
+            Blas(ctx, bbox_array, nb_of_light));
       }
       nb_of_light++;
     }

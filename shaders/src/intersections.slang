@@ -24,18 +24,13 @@ void lightIntersection()
     if (light.type == LightType::Point)
     {
         let light_point : LightPoint = light.get_point_light();
-        attr.emision = light_point.emission;
         float t;
-        if (!hit_sphere(ray, light_point.position, light_point.radius, t))
+        if (hit_sphere(ray, light_point.position, light_point.radius, t))
         {
-            ReportHit(0.1, 0, attr);
-            return;
+            attr.emision = light_point.emission;
+            ReportHit(t, 0, attr);
         }
-
-        ReportHit(t, 0, attr);
     }
-
-    return;
 }
 
 [shader("intersection")]
