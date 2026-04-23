@@ -167,7 +167,7 @@ void GPURenderer::render(const Scene &scene) {
   result_img.write(writter, 0, _pipeline.get_sampler(), StorageImage);
 
   UploadedAccStruct gpu_acc_struct =
-      scene._collection.upload_to_gpu(_ctx, writter);
+      scene._collection.upload_to_gpu(_ctx, writter, scene._materials);
 
   auto acc_write_descr_alloc_scene = gpu_acc_struct.scene.get_write_descr_alloc();
   auto acc_write_descr_alloc_lights = gpu_acc_struct.lights_scene.get_write_descr_alloc();

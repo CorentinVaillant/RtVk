@@ -43,6 +43,10 @@ public:
     };
   }
 
+  glm::vec4 emission(std::span<const Material> materials) const {
+    return materials[_material_index]._emission;
+  }
+
   // -- IHittable impl
 public:
   bool hit(Ray r, Interval ray_t, HitRecord *records, std::span<const Vertex> vertex_buffer) const;

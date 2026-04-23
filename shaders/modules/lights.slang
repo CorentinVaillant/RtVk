@@ -89,41 +89,30 @@ public struct Light
     public LightType type;
     public uint32_t start_index, end_index;
     public uint32_t _pad;
-    
+
     public Vec4 emission;
-    
+
     public Vec3 position_forward_vec;
     public float radius_angle;
-    
+
+    public void debug_info()
+    {
+        if (type == LightType::Point)
+        {
+            printf("Emission : [%f, %f, %f, %f]\nPosition : [%f, %f, %f]\nRadius : %f\n", emission.x, emission.y, emission.z, emission.w, position_forward_vec.x, position_forward_vec.y, position_forward_vec.z, radius_angle);
+        } else if (type == LightType::Mesh)
+        {
+            printf("Emission : [%f, %f, %f, %f]\nstart_id : %u; end_id : %u\n", emission.x, emission.y, emission.z, emission.w, start_index, end_index);
+        } else {
+            printf("Sun\n");
+        }
+    }
+
     public void assertions()
     {
         constexpr size_t size = sizeof(This);
         static_assert(size == 48, "Size != 48");
     }
-
-    // __init(LightPoint p)
-    // {
-
-    //     this.type = LightType::Point;
-    //     this.emission = p.emission;
-    //     this.position_forward_vec = p.position;
-    //     this.radius_angle = p.radius;
-    // }
-
-    // __init(LightMesh m)
-    // {
-    //     this.type = LightType::Mesh;
-    //     this.emission = m.emission;
-    //     this.start_index = m.start_index;
-    //     this.end_index = m.end_index;
-    // }
-
-    // __init(LightSun s)
-    // {
-    //     this.type = LightType::Sun;
-    //     this.emission = s.emission;
-    //     this.position_forward_vec = s.forward_vec;
-    // }
 
     public LightPoint get_point_light()
     {

@@ -98,5 +98,4 @@ void meshPdfHit(inout PdfPayload payload, in BuiltInTriangleIntersectionAttribut
 void lightHit(inout RayPayload payload, in LightAttribut attr_in)
 {
     payload.color = attr_in.emision;
-    return;
 }

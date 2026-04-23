@@ -163,8 +163,8 @@ private:
 
 public:
   // vulkan
-  UploadedAccStruct upload_to_gpu(VulkanContext &ctx,
-                                  DescriptorWriter &writter) const {
+  UploadedAccStruct upload_to_gpu(VulkanContext &ctx, DescriptorWriter &writter,
+                                  std::span<const Material> materials) const {
 
     // Upload vertices into GPU
     Buffer<> vbuff(
@@ -201,13 +201,15 @@ public:
     // Making BLASses
     std::vector<Blas> blas_vec;
     std::vector<Instance> instance_vec;
+    std::vector<LightMesh> emissives;
+    std::vector<size_t> emissives_blas_indices;
     blas_vec.reserve(_models.size());
     instance_vec.reserve(_models.size());
 
     size_t index_offset = 0;
     for (const Model &model : _models) {
-      model.upload_meshes(ctx, vbuff, ibuff, index_offset, blas_vec,
-                          instance_vec);
+      model.upload_meshes(ctx, vbuff, ibuff, index_offset, materials, blas_vec,
+                          instance_vec, emissives, emissives_blas_indices);
       index_offset += model.triangle_count();
     }
 
@@ -221,12 +223,15 @@ public:
         0, instance_vec.size() * sizeof(Instance),
         reinterpret_cast<const uint8_t *>(instance_vec.data()));
 
-    // add lights to the Scene
-    // TODO add mesh lights
+    // Add lights to the Scene
     std::vector<Buffer<>> primitives;
     ASSERT_ERR(!_punctualLights.empty(),
                "Punctual lights should not be empty !");
-    primitives.emplace_back(ctx, _punctualLights.size() * sizeof(Light),
+    std::vector<Light> punctual_lights = _punctualLights;
+    for (LightMesh emissive_mesh : emissives)
+      punctual_lights.emplace_back(emissive_mesh);
+
+    primitives.emplace_back(ctx, punctual_lights.size() * sizeof(Light),
                             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                             VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -234,20 +239,20 @@ public:
     Buffer<> &light_buffer = primitives.back();
 
     light_buffer.write(
-        0, _punctualLights.size() * sizeof(Light),
-        reinterpret_cast<const uint8_t *>(_punctualLights.data()));
+        0, punctual_lights.size() * sizeof(Light),
+        reinterpret_cast<const uint8_t *>(punctual_lights.data()));
 
+    // Getting light blasses
     size_t lights_index = blas_vec.size();
-    size_t nb_of_light = 0;
+    size_t nb_of_lights = 0;
     std::array<VkAabbPositionsKHR, 1> bbox_array;
     for (const Light &light : _punctualLights) {
       auto bbox = light.get_bbox();
       if (bbox.has_value()) {
         bbox_array[0] = light.get_bbox()->to_vk();
-        blas_vec.emplace_back(
-            Blas(ctx, bbox_array, nb_of_light));
+        blas_vec.emplace_back(Blas(ctx, bbox_array, nb_of_lights));
       }
-      nb_of_light++;
+      nb_of_lights++;
     }
 
     instance_buffer.write_into_descriptor(writter, Instance::BINDING,
@@ -258,14 +263,18 @@ public:
     ibuff.write_into_descriptor(writter, TriangleIndices::BINDING, ibuff._count,
                                 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
     light_buffer.write_into_descriptor(writter, Light::BINDING,
-                                       nb_of_light * sizeof(Light), 0,
+                                       punctual_lights.size() * sizeof(Light), 0,
                                        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
     std::array<std::span<Blas>, 1> scene_blas_span_tab{
         std::span<Blas>{blas_vec}};
-    std::array<std::span<Blas>, 1> light_blas_span{
+    std::vector<std::span<Blas>> light_blas_span{
         std::span<Blas>{blas_vec.begin() + lights_index, blas_vec.end()}};
-
+    light_blas_span.reserve(1 + emissives_blas_indices.size());
+    // add mesh to the emissives blas span
+    for (size_t idx : emissives_blas_indices) {
+      light_blas_span.push_back(std::span<Blas>{&blas_vec[idx], 1});
+    }
     return UploadedAccStruct{
         .instance_buffer = {std::move(instance_buffer)},
         .primitive_buffers = std::move(primitives),

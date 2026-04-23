@@ -4,7 +4,6 @@ import "../modules/attributs";
 import "../modules/scene_data";
 import "../modules/geometry";
 import "../modules/lights";
-
 // -- Lights --
 [shader("intersection")]
 void lightIntersection()

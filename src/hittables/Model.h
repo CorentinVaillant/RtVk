@@ -3,9 +3,11 @@
 #include "fastgltf/types.hpp"
 #include "graphics/Buffer.h"
 #include "graphics/vulkan_context.h"
+#include "hittables/Light.h"
 #include "hittables/Mesh.h"
 #include "hittables/TriangleRef.h"
 #include "renderer/renderer_utils.h"
+#include "types.h"
 #include <glm/gtc/quaternion.hpp>
 
 static inline glm::mat4
@@ -39,7 +41,7 @@ gltf_transform_to_glm(const std::variant<fastgltf::TRS, fastgltf::math::fmat4x4>
   return result;
 }
 
-class Model  {
+class Model {
   struct ModelNode {
     std::optional<Mesh> mesh;
     glm::mat4 world_transform = glm::mat4(1);
@@ -105,14 +107,16 @@ private:
 
   // -- IHitable impl --
 public:
-  bool hit(Ray r, Interval ray_t, HitRecord *records,std::span<const Vertex> vertex_buffer) const {
+  bool hit(Ray r, Interval ray_t, HitRecord *records,
+           std::span<const Vertex> vertex_buffer) const {
     bool hit_anything = false;
 
     for (const ModelNode &node : _nodes) {
       if (!node.mesh.has_value())
         continue;
       const Mesh &mesh = node.mesh.value();
-      if (mesh.get_bbox().hit(r, ray_t) && mesh.hit(r, ray_t, records,vertex_buffer)) {
+      if (mesh.get_bbox().hit(r, ray_t) &&
+          mesh.hit(r, ray_t, records, vertex_buffer)) {
         ray_t.max = records->t;
         hit_anything = true;
       }
@@ -125,8 +129,11 @@ public:
 
   void upload_meshes(VulkanContext &ctx, const Buffer<> &vbuff,
                      const Buffer<> &ibuff, size_t index_offset,
+                     std::span<const Material> materials,
                      std::vector<Blas> &blas_out,
-                     std::vector<Instance> &instance_out) const {
+                     std::vector<Instance> &instance_out,
+                     std::vector<LightMesh> &emissive_out,
+                     std::vector<size_t> &emissive_blas_indices_out) const {
 
     size_t mesh_offset = index_offset;
     for (const ModelNode &node : _nodes) {
@@ -136,6 +143,20 @@ public:
         blas_out.emplace_back(
             mesh.upload_to_mesh_blas(ctx, vbuff, ibuff, node.world_transform,
                                      instance_out.size() - 1, mesh_offset));
+
+        glm::vec4 emission = mesh.emission(materials);
+        const float MIN_SQ_EMISSION = 1;
+        if (lenght_sq(emission) >= MIN_SQ_EMISSION) {
+          emissive_out.emplace_back(LightMesh{
+              .emission = emission,
+              .start_index = static_cast<uint32_t>(mesh_offset),
+              .end_index =
+                  static_cast<uint32_t>(mesh_offset + mesh.triangle_count()),
+          });
+
+          emissive_blas_indices_out.push_back(blas_out.size() - 1);
+        }
+
         mesh_offset += mesh.triangle_count();
       }
     }
