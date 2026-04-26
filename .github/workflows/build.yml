@@ -27,6 +27,14 @@ jobs:
             libsdl2-dev \
             clang
       
+      - name: Install Slang (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          wget https://github.com/shader-slang/slang/releases/download/v2024.14.5/slang-2024.14.5-linux-x86_64.tar.gz
+          tar xzf slang-2024.14.5-linux-x86_64.tar.gz
+          sudo cp slang-2024.14.5-linux-x86_64/bin/slangc /usr/local/bin/
+          sudo chmod +x /usr/local/bin/slangc
+      
       - name: Install Vulkan SDK (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -35,10 +43,26 @@ jobs:
           Start-Process -FilePath .\VulkanSDK.exe -ArgumentList '/S' -Wait
         shell: powershell
       
+      - name: Install Slang (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/shader-slang/slang/releases/download/v2024.14.5/slang-2024.14.5-windows-x86_64.zip" -OutFile slang.zip
+          Expand-Archive slang.zip -DestinationPath C:\slang
+          echo "C:\slang\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        shell: powershell
+      
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install vulkan-loader vulkan-headers molten-vk sdl2
+      
+      - name: Install Slang (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          wget https://github.com/shader-slang/slang/releases/download/v2024.14.5/slang-2024.14.5-macos-aarch64.zip
+          unzip slang-2024.14.5-macos-aarch64.zip
+          sudo cp slang-2024.14.5-macos-aarch64/bin/slangc /usr/local/bin/
+          sudo chmod +x /usr/local/bin/slangc
       
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
