@@ -38,25 +38,15 @@ void rayGen()
     }
     result_color /= float(pushed.spp);
 
-    resultTexture[threadIdx.xy] = payload.depth == pushed.max_depth && hit_sphere(ray, Vec3(0), 0.01f) ? Color(1) : result_color;
+    let nan_eval = isnan(result_color);
+    if (nan_eval.x || nan_eval.y || nan_eval.z || nan_eval.w)
+        resultTexture[threadIdx.xy] = Color(1.,0,0, 1);
+    else
+        resultTexture[threadIdx.xy] = result_color;
 }
 
 [shader("miss")]
 void miss(inout RayPayload payload)
 {
-    payload.color = Vec4(0, 0, 0, 1);
-    return;
-    // uint num_of_light = punctualLightBuffer.getCount();
-    // for (uint i = 0; i < num_of_light; i++)
-    // {
-    //     if (punctualLightBuffer[i].type == LightType::Sun)
-    //     {
-    //         LightSun sun = punctualLightBuffer[i].get_sun_light();
-    //         if (dot(normalize(sun.forward_vec), normalize(WorldRayDirection())) < sun.angle)
-    //         {
-    //             payload.color += sun.emission;
-    //             break;
-    //         }
-    //     }
-    // }
+    shade_miss(payload);
 }

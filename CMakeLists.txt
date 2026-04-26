@@ -4,9 +4,9 @@ project("RtVk")
 
 find_package(Vulkan REQUIRED)
 
-if(LINUX)
-  option(CMAKE_CXX_COMPILER clang++)
-endif()
+# if(LINUX)
+#   option(CMAKE_CXX_COMPILER clang++)
+# endif()
 
 option(SDL_X11_XTEST OFF)
 

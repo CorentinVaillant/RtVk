@@ -12,7 +12,7 @@
 struct RendererPushCst {
   Camera _cam;
   float _renderWidth, _renderHeight, _time;
-  uint32_t max_depth = 5;
+  uint32_t max_depth = 10;
   uint32_t spp = 100;
 };
 

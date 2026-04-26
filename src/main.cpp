@@ -10,6 +10,7 @@
 #include "renderer/GPURenderer.h"
 
 #include "test.h"
+#include <cstddef>
 
 int main() {
   LOG(1, "Starting app !");
@@ -39,8 +40,10 @@ int main() {
 
     if (event.type == SDL_EVENT_KEY_DOWN &&
         event.key.scancode == SDL_SCANCODE_LEFT) {
-      curr_scene_index = std::clamp((curr_scene_index - 1) % scenes.size(), 0lu,
-                                    scenes.size() - 1);
+      int scene_index =
+          (static_cast<int>(curr_scene_index) + scenes.size() - 1) %
+          scenes.size();
+      curr_scene_index = static_cast<size_t>(scene_index);
       LOG(4, "Switched to scene {}", curr_scene_index);
       curr_scene = &scenes[curr_scene_index];
       render_changed = true;
@@ -48,13 +51,34 @@ int main() {
 
     if (event.type == SDL_EVENT_KEY_DOWN &&
         event.key.scancode == SDL_SCANCODE_RIGHT) {
-      curr_scene_index = std::clamp((curr_scene_index + 1) % scenes.size(), 0lu,
-                                    scenes.size() - 1);
+      curr_scene_index = (curr_scene_index + 1) % scenes.size();
+
       LOG(4, "Switched to scene {}", curr_scene_index);
       curr_scene = &scenes[curr_scene_index];
       render_changed = true;
     }
 
+    // change camera :
+    if (event.type == SDL_EVENT_KEY_DOWN &&
+        event.key.scancode == SDL_SCANCODE_1) {
+      curr_scene->_active_camera =
+          (curr_scene->_active_camera + curr_scene->_camera.size() - 1) %
+          curr_scene->_camera.size();
+      LOG(4, "Switched to camera {}", curr_scene->_active_camera);
+
+      render_changed = true;
+    }
+
+    if (event.type == SDL_EVENT_KEY_DOWN &&
+        event.key.scancode == SDL_SCANCODE_2) {
+      curr_scene->_active_camera =
+          (curr_scene->_active_camera + 1) % curr_scene->_camera.size();
+      LOG(4, "Switched to camera {}", curr_scene->_active_camera);
+
+      render_changed = true;
+    }
+
+    // move camera :
     constexpr float MOVE_SPEED = 10.f;
 
     if (event.type == SDL_EVENT_KEY_DOWN &&
@@ -101,7 +125,6 @@ int main() {
   });
 
   VulkanContext::run([&](VulkanContext &ctx) {
-
     // float runtime_second = float(runtime.count()) / 1e6;
     TimePoint begin = steady_clock::now();
 

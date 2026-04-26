@@ -15,11 +15,11 @@ public struct LightPoint
         static_assert(sizeof(This) == 32, "Size != 32");
     }
 
-    public Vec3 generate_random_dir(inout uint seed, Vec3 origin)
+    public Vec3 generate_random_dir(inout uint seed, const in Vec3 origine, out float t)
     {
-        let pos : Vec3 = SpherePdf().generate(seed) * radius + position;
-
-        return normalize(pos - origin);
+        let point = SpherePdf().generate(seed) * radius + position;
+        t = length(point - origine);
+        return (point - origine) / t; // normalize
     }
 };
 
@@ -34,7 +34,7 @@ public struct LightMesh
         static_assert(sizeof(This) == 24, "Size != 24");
     }
 
-    public Vec3 generate_random_dir(inout uint seed, Vec3 origin, StructuredBuffer<uint3> indexBuffer, StructuredBuffer<Vertex> vertexBuffer)
+    public Vec3 generate_random_dir(inout uint seed, const in Vec3 origine,out float t,StructuredBuffer<uint3> indexBuffer, StructuredBuffer<Vertex> vertexBuffer)
     {
         // take a random triangle
         uint base_index = (start_index + random(seed, 0, end_index - start_index)) / 3;
@@ -52,10 +52,10 @@ public struct LightMesh
                      random_barycentric.x,
                      random_barycentric.y);
 
-        let pos = b.x * p0 + b.y * p1 + b.z * p2;
+        let point =  b.x * p0 + b.y * p1 + b.z * p2;
 
-        // return the direction to this point
-        return normalize(origin - pos);
+        t = length(point - origine);
+        return (point - origine) / t; // normalize
     }
 };
 
@@ -70,10 +70,10 @@ public struct LightSun
         static_assert(sizeof(This) == 32, "Size != 32");
     }
 
-    public Vec3 generate_random_dir(inout uint seed, Vec3 origin)
+    public Vec3 generate_random_dir(inout uint seed, const in Vec3 origin)
     {
         let jitter_vector = random3(seed, -angle / 2.f, angle / 2.);
-        return normalize(jitter_vector - forward_vec);
+        return origin + (RayTCurrent() + 0.1) * (jitter_vector - forward_vec);
     }
 };
 
@@ -100,10 +100,13 @@ public struct Light
         if (type == LightType::Point)
         {
             printf("Emission : [%f, %f, %f, %f]\nPosition : [%f, %f, %f]\nRadius : %f\n", emission.x, emission.y, emission.z, emission.w, position_forward_vec.x, position_forward_vec.y, position_forward_vec.z, radius_angle);
-        } else if (type == LightType::Mesh)
+        }
+        else if (type == LightType::Mesh)
         {
             printf("Emission : [%f, %f, %f, %f]\nstart_id : %u; end_id : %u\n", emission.x, emission.y, emission.z, emission.w, start_index, end_index);
-        } else {
+        }
+        else
+        {
             printf("Sun\n");
         }
     }

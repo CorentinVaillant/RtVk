@@ -244,15 +244,17 @@ public:
 
     // Getting light blasses
     size_t lights_index = blas_vec.size();
-    size_t nb_of_lights = 0;
     std::array<VkAabbPositionsKHR, 1> bbox_array;
-    for (const Light &light : _punctualLights) {
-      auto bbox = light.get_bbox();
-      if (bbox.has_value()) {
-        bbox_array[0] = light.get_bbox()->to_vk();
-        blas_vec.emplace_back(Blas(ctx, bbox_array, nb_of_lights));
+    {
+      size_t i = 0;
+      for (const Light &light : _punctualLights) {
+        auto bbox = light.get_bbox();
+        if (bbox.has_value()) {
+          bbox_array[0] = light.get_bbox()->to_vk();
+          blas_vec.emplace_back(Blas(ctx, bbox_array, i));
+        }
+        i++;
       }
-      nb_of_lights++;
     }
 
     instance_buffer.write_into_descriptor(writter, Instance::BINDING,
@@ -263,11 +265,11 @@ public:
     ibuff.write_into_descriptor(writter, TriangleIndices::BINDING, ibuff._count,
                                 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
     light_buffer.write_into_descriptor(writter, Light::BINDING,
-                                       punctual_lights.size() * sizeof(Light), 0,
-                                       VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                                       punctual_lights.size() * sizeof(Light),
+                                       0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
     std::array<std::span<Blas>, 1> scene_blas_span_tab{
-        std::span<Blas>{blas_vec}};
+        std::span<Blas>{blas_vec.data(), lights_index}};
     std::vector<std::span<Blas>> light_blas_span{
         std::span<Blas>{blas_vec.begin() + lights_index, blas_vec.end()}};
     light_blas_span.reserve(1 + emissives_blas_indices.size());
