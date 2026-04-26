@@ -1,0 +1,112 @@
+# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
+name: CMake on multiple platforms         
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs: 
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: false
+
+      # Set up a matrix to run the following 3 configurations:
+      # 1. <Windows, Release, latest MSVC compiler toolchain on the default runner image, default generator>
+      # 2. <Linux, Release, latest GCC compiler toolchain on the default runner image, default generator>
+      # 3. <Linux, Release, latest Clang compiler toolchain on the default runner image, default generator>
+      #
+      # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build_type: [Release]
+        c_compiler: [gcc, clang, cl]
+        include:
+          - os: windows-latest
+            c_compiler: cl
+            cpp_compiler: cl
+          - os: ubuntu-latest
+            c_compiler: gcc
+            cpp_compiler: g++
+          - os: ubuntu-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+        exclude:
+          - os: windows-latest
+            c_compiler: gcc
+          - os: windows-latest
+            c_compiler: clang
+          - os: ubuntu-latest
+            c_compiler: cl
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Vulkan SDK
+      # You may pin to the exact commit or the version.
+      # uses: humbletim/setup-vulkan-sdk@c25f41106918cde0bf347e6f201277392b3a9e9d
+      uses: humbletim/setup-vulkan-sdk@v1.2.1    
+      with:
+        vulkan-query-version: latest
+        vulkan-components: Vulkan-Headers, Vulkan-Loader
+        vulkan-use-cache: true
+
+    - name: Install slang (Linux)
+      shell: bash
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+             libvulkan-dev \
+             vulkan-tools \
+             vulkan-validationlayers \
+             libsdl2-dev \
+             clang
+         wget https://github.com/shader-slang/slang/releases/download/v2026.7.1/slang-2026.7.1-linux-x86_64-glibc-2.27.tar.gz
+         tar xzf slang-2026.7.1-linux-x86_64-glibc-2.27.tar.gz
+         sudo cp slang-2026.7.1-linux-x86_64-glibc-2.27/bin/slangc /usr/local/bin/
+         sudo chmod +x /usr/local/bin/slangc
+
+    - name: Install Slang (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        Invoke-WebRequest -Uri "https://github.com/shader-slang/slang/releases/download/v2026.7.1/slang-2026.7.1-windows-x86_64.zip" -OutFile slang.zip
+        Expand-Archive slang.zip -DestinationPath C:\slang
+        echo "C:\slang\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Install Slang (MacOs)
+      if: runner.os == 'macOS'
+      run: |
+        wget https://github.com/shader-slang/slang/releases/download/v2026.7.1/slang-2026.7.1-macos-aarch64.zip
+        unzip slang-2026.7.1-macos-aarch64.zip
+        sudo cp slang-2026.7.1-macos-aarch64/bin/slangc /usr/local/bin/
+        sudo chmod +x /usr/local/bin/slangc
+       
+     
+
+    - name: Set reusable strings
+      # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
+      id: strings
+      shell: bash
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: >
+        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -S ${{ github.workspace }}
+
+    - name: Build
+      # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
