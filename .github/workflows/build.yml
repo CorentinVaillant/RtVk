@@ -16,23 +16,26 @@ jobs:
         with:
           submodules: recursive
       
-      - name: Install Vulkan SDK (Linux)
+      - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
-          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
           sudo apt-get update
-          sudo apt-get install -y vulkan-sdk libsdl2-dev clang
+          sudo apt-get install -y \
+            libvulkan-dev \
+            vulkan-tools \
+            vulkan-validationlayers \
+            libsdl2-dev \
+            clang
       
       - name: Install Vulkan SDK (Windows)
         if: runner.os == 'Windows'
         run: |
           $ProgressPreference = 'SilentlyContinue'
           Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe" -OutFile VulkanSDK.exe
-          .\VulkanSDK.exe --accept-licenses --default-answer --confirm-command install
+          Start-Process -FilePath .\VulkanSDK.exe -ArgumentList '/S' -Wait
         shell: powershell
       
-      - name: Install Vulkan SDK (macOS)
+      - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install vulkan-loader vulkan-headers molten-vk sdl2
