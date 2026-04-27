@@ -1,15 +1,21 @@
 find_package(Vulkan REQUIRED)
-
 add_library(glm INTERFACE)
 add_library(volk INTERFACE)
-
 add_library(stb_image INTERFACE)
 add_library(stb_image_write INTERFACE)
-
 add_subdirectory(fastgltf)
 add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(SDL EXCLUDE_FROM_ALL)
 add_subdirectory(Vulkan-Utility-Libraries)
+
+# AJOUTEZ CETTE LIGNE si Vulkan-Utility-Libraries n'exporte pas de target
+# (sinon passez directement à l'étape 2)
+if(NOT TARGET VulkanUtilityHeaders)
+    add_library(VulkanUtilityHeaders INTERFACE)
+    target_include_directories(VulkanUtilityHeaders INTERFACE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Utility-Libraries/include
+    )
+endif()
 
 add_subdirectory(vkbootstrap)
 add_subdirectory(VulkanMemoryAllocator)
