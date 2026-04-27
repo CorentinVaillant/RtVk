@@ -53,4 +53,5 @@ if(WIN32)
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:RtVk> $<TARGET_FILE_DIR:RtVk>
     COMMAND_EXPAND_LISTS
     )
+    add_compile_definitions(_USE_MATH_DEFINES)
 endif()
