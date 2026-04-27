@@ -29,6 +29,7 @@ target_include_directories(RtVk PUBLIC "${CMAKE_BINARY_DIR}/src")
 
 target_link_libraries(RtVk PUBLIC 
     glm 
+    volk
     Vulkan::Vulkan 
     fmt::fmt 
     stb_image 
