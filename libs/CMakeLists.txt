@@ -9,10 +9,7 @@ add_library(stb_image_write INTERFACE)
 add_subdirectory(fastgltf)
 add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(SDL EXCLUDE_FROM_ALL)
-set(UPDATE_DEPS ON)
-add_library(vulkan_utility INTERFACE)
-target_include_directories(vulkan_utility INTERFACE Vulkan-Utility-Libraries/include)
-
+add_subdirectory(Vulkan-Utility-Libraries)
 
 add_subdirectory(vkbootstrap)
 add_subdirectory(VulkanMemoryAllocator)
