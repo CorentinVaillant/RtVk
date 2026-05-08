@@ -5,6 +5,7 @@ import "../modules/scene_data";
 import "../modules/materials";
 import "../modules/payloads";
 import "../modules/attributs";
+import "../modules/lights";
 
 [shader("closesthit")]
 void meshHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr_in)
@@ -30,7 +31,7 @@ void meshHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes 
     attr.u = b.x * v0.u + b.y * v1.u + b.z * v2.u;
     attr.v = b.x * v0.v + b.y * v1.v + b.z * v2.v;
 
-    attr.set_face_normal(WorldRayDirection(), normalize(interp_normal));
+    attr.set_face_normal(NVec3::from(WorldRayDirection()), NVec3::from(interp_normal));
     attr.material_index = instance.materialId;
 
     RayDesc ray;
@@ -57,7 +58,7 @@ void meshPdfHit(inout PdfPayload payload, in BuiltInTriangleIntersectionAttribut
 
     // Test if it is a light source
     Brdf brdf = materialBuffer[instance.materialId];
-    if (sq(payload.min_light_val) > length_sq(brdf.emission))
+    if (payload.min_light_val > luminance(brdf.emission))
         return;
 
     Vertex v0 = vertexBuffer[idx.x];
@@ -77,7 +78,7 @@ void meshPdfHit(inout PdfPayload payload, in BuiltInTriangleIntersectionAttribut
     let area = 0.5 * length(cross(e1, e2));
 
     // compute the pdf val
-    let dist_sq = sq(RayTCurrent()) * length_sq(ray_dir);
+    let dist_sq = sq(RayTCurrent() * length(ray_dir));
     let cos_val = abs(dot(normalize(ray_dir), normalize(normal)));
 
     if (cos_val < 1e-8f)
@@ -85,7 +86,6 @@ void meshPdfHit(inout PdfPayload payload, in BuiltInTriangleIntersectionAttribut
         payload.pdf_val = 0.f;
         return;
     }
-    payload.pdf_val = dist_sq / (cos_val * area);
 
     payload.hit_point = b.x * v0.position + b.y * v1.position + b.z * v2.position;
 
@@ -95,7 +95,28 @@ void meshPdfHit(inout PdfPayload payload, in BuiltInTriangleIntersectionAttribut
 }
 
 [shader("closesthit")]
+void lightPdf(inout PdfPayload payload, in LightAttribut attr_in)
+{
+    let light = punctualLightBuffer[attr_in.index];
+
+    if (payload.min_light_val > luminance(light.emission))
+    {
+        payload.hit = false;
+        return;
+    }
+    payload.hit = true;
+    payload.hit_point = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
+
+    RayDesc ray;
+    ray.Direction = WorldRayDirection();
+    ray.Origin = WorldRayOrigin();
+    ray.TMax = 10000.;
+    ray.TMin = 0.0001;
+    payload.pdf_val = light.pdf(ray);
+}
+
+[shader("closesthit")]
 void lightHit(inout RayPayload payload, in LightAttribut attr_in)
 {
-    payload.color = attr_in.emision;
+    payload.color = punctualLightBuffer[attr_in.index].emission;
 }

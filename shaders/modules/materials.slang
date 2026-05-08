@@ -29,14 +29,23 @@ public struct Brdf
         return true;
     }
 
-    public float scattering_pdf(const RayDesc ray_in, const HitAttribut hit_attr, inout uint seed, out Vec3 dir_out)
+    public float scattering_pdf(const RayDesc ray_in, const HitAttribut hit_attr, inout uint seed, out NVec3 dir_out)
     {
-        let first_pdf = ReflectPdf(ray_in.Direction, hit_attr.normal);
+        let first_pdf = ReflectPdf(NVec3::from(ray_in.Direction), hit_attr.normal);
         let seconf_pdf = CosinePdf(hit_attr.normal);
         let pdf = MixPdf<ReflectPdf, CosinePdf>(first_pdf, seconf_pdf, roughness);
 
         dir_out = pdf.generate(seed);
 
         return pdf.value(dir_out);
+    }
+
+    public float scattering_pdf_value(const in RayDesc ray_in, const in RayDesc ray_out, const HitAttribut hit_attr)
+    {
+        let first_pdf = ReflectPdf(NVec3::from(ray_in.Direction), hit_attr.normal);
+        let seconf_pdf = CosinePdf(hit_attr.normal);
+        let pdf = MixPdf<ReflectPdf, CosinePdf>(first_pdf, seconf_pdf, roughness);
+        let result = pdf.value(NVec3(ray_out.Direction));
+        return result;
     }
 }

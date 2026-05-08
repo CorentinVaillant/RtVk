@@ -15,7 +15,9 @@
 
 #include "shaders/closest_hit.slang.h"
 #include "shaders/intersections.slang.h"
+#include "shaders/miss.slang.h"
 #include "shaders/simple_rt.slang.h"
+#include "types.h"
 
 GPURenderer::GPURenderer(VulkanContext &ctx, ImageBuffer &&img_buffer)
     : Renderer(std::move(img_buffer)), _ctx(ctx),
@@ -29,7 +31,7 @@ RendererPushCst GPURenderer::get_push_cst(const Scene &scene) const {
       ._renderWidth = static_cast<float>(_imgBuffer.get_width()),
       ._renderHeight = static_cast<float>(_imgBuffer.get_height()),
       ._time = scene._time,
-      .max_depth = 5,
+      .max_depth = 10,
       .spp = 250,
   };
 }
@@ -79,22 +81,27 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
   pipeline_descr.set_push_cst(ALL_RT_STAGE, 0, sizeof(RendererPushCst));
 
   // Shaders
+
   Shader main_shader = Shader(ctx, SIMPLE_RT_SPIRV);
   Shader closest_hit = Shader(ctx, CLOSEST_HIT_SPIRV);
   Shader intersection = Shader(ctx, INTERSECTIONS_SPIRV);
+  Shader miss_shader = Shader(ctx, MISS_SPIRV);
   pipeline_descr
-      .add_shader_stage(Raygen, main_shader, "rayGen")                   /*0*/
-      .add_shader_stage(Miss, main_shader, "miss")                       /*1*/
-      .add_shader_stage(ClosestHit, closest_hit, "meshHit")              /*2*/
-      .add_shader_stage(Intersection, intersection, "lightIntersection") /*3*/
-      .add_shader_stage(ClosestHit, closest_hit, "lightHit")             /*4*/
+      .add_shader_stage(Raygen, main_shader, "main")                     /*0*/
+      .add_shader_stage(Miss, miss_shader, "generalMiss")                /*1*/
+      .add_shader_stage(Miss, miss_shader, "pdfMiss")                    /*2*/
+      .add_shader_stage(ClosestHit, closest_hit, "meshHit")              /*3*/
+      .add_shader_stage(ClosestHit, closest_hit, "meshPdfHit")           /*4*/
+      .add_shader_stage(Intersection, intersection, "lightIntersection") /*5*/
+      .add_shader_stage(ClosestHit, closest_hit, "lightHit")             /*6*/
+      .add_shader_stage(ClosestHit, closest_hit, "lightPdf")             /*7*/
       ;
 
   // Shader groups
   RtPipelineCreateInfos create_info;
   create_info.max_rt_depth = 10;
-  create_info.groups.resize(4);
-  create_info.groups[0] = VkRayTracingShaderGroupCreateInfoKHR{
+  // general shader stage
+  create_info.groups.push_back(VkRayTracingShaderGroupCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
       .pNext = nullptr,
       .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
@@ -102,9 +109,9 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
       .closestHitShader = VK_SHADER_UNUSED_KHR,
       .anyHitShader = VK_SHADER_UNUSED_KHR,
       .intersectionShader = VK_SHADER_UNUSED_KHR,
-  };
-
-  create_info.groups[1] = VkRayTracingShaderGroupCreateInfoKHR{
+  });
+  // drawing shader miss
+  create_info.groups.push_back(VkRayTracingShaderGroupCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
       .pNext = nullptr,
       .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
@@ -112,27 +119,69 @@ RtPipeline GPURenderer::create_pipeline(VulkanContext &ctx) {
       .closestHitShader = VK_SHADER_UNUSED_KHR,
       .anyHitShader = VK_SHADER_UNUSED_KHR,
       .intersectionShader = VK_SHADER_UNUSED_KHR,
-  };
-
-  create_info.groups[2] = VkRayTracingShaderGroupCreateInfoKHR{
+  });
+  // pdf shader miss
+  create_info.groups.push_back(VkRayTracingShaderGroupCreateInfoKHR{
+      .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+      .pNext = nullptr,
+      .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+      .generalShader = 2, // miss
+      .closestHitShader = VK_SHADER_UNUSED_KHR,
+      .anyHitShader = VK_SHADER_UNUSED_KHR,
+      .intersectionShader = VK_SHADER_UNUSED_KHR,
+  });
+  // drawing closestHit for triangle
+  create_info.groups.push_back(VkRayTracingShaderGroupCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
       .pNext = nullptr,
       .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
       .generalShader = VK_SHADER_UNUSED_KHR,
-      .closestHitShader = 2, // closestHit for Triangle
+      .closestHitShader = 3,
       .anyHitShader = VK_SHADER_UNUSED_KHR,
       .intersectionShader = VK_SHADER_UNUSED_KHR,
-  };
-
-  create_info.groups[3] = VkRayTracingShaderGroupCreateInfoKHR{
+  });
+  // pdf closestHit for triangle
+  create_info.groups.push_back(VkRayTracingShaderGroupCreateInfoKHR{
+      .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+      .pNext = nullptr,
+      .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+      .generalShader = VK_SHADER_UNUSED_KHR,
+      .closestHitShader = 4,
+      .anyHitShader = VK_SHADER_UNUSED_KHR,
+      .intersectionShader = VK_SHADER_UNUSED_KHR,
+  });
+  // drawing for light
+  create_info.groups.push_back(VkRayTracingShaderGroupCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
       .pNext = nullptr,
       .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR,
       .generalShader = VK_SHADER_UNUSED_KHR,
-      .closestHitShader = 4,
+      .closestHitShader = 6,
       .anyHitShader = VK_SHADER_UNUSED_KHR,
-      .intersectionShader = 3,
-  };
+      .intersectionShader = 5,
+  });
+  // pdf for light
+  create_info.groups.push_back(VkRayTracingShaderGroupCreateInfoKHR{
+      .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+      .pNext = nullptr,
+      .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR,
+      .generalShader = VK_SHADER_UNUSED_KHR,
+      .closestHitShader = 7,
+      .anyHitShader = VK_SHADER_UNUSED_KHR,
+      .intersectionShader = 5,
+  });
+
+  create_info.raygen_count = 1;
+  create_info.miss_count = 2;
+  create_info.hit_count = 4;
+  create_info.hit_stride_count = 1;
+
+  // create_info.group_count is just the sum of the three above
+
+  ASSERT_ERR(create_info.group_count() == create_info.groups.size(),
+             "The sums of the group counts should be equal to the number of "
+             "elements in create.groups.size(), got {} and {}",
+             create_info.group_count(), create_info.groups.size());
 
   return RtPipeline(ctx, pipeline_descr, create_info);
 }
@@ -169,16 +218,20 @@ void GPURenderer::render(const Scene &scene) {
   UploadedAccStruct gpu_acc_struct =
       scene._collection.upload_to_gpu(_ctx, writter, scene._materials);
 
-  auto acc_write_descr_alloc_scene = gpu_acc_struct.scene.get_write_descr_alloc();
-  auto acc_write_descr_alloc_lights = gpu_acc_struct.lights_scene.get_write_descr_alloc();
+  auto acc_write_descr_alloc_scene =
+      gpu_acc_struct.scene.get_write_descr_alloc();
+  auto acc_write_descr_alloc_lights =
+      gpu_acc_struct.lights_scene.get_write_descr_alloc();
 
   gpu_acc_struct.scene.get_buffer().write_into_descriptor(
       writter, SCENE_TLAS_BINDING, 1, 0,
-      VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, &acc_write_descr_alloc_scene);
+      VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+      &acc_write_descr_alloc_scene);
 
   gpu_acc_struct.lights_scene.get_buffer().write_into_descriptor(
       writter, LIGHT_TLAS_BINDING, 1, 0,
-      VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, &acc_write_descr_alloc_lights);
+      VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+      &acc_write_descr_alloc_lights);
 
   buffers.uniforms.write_into_descriptor(writter, UNIFORMS_BINDING, 1, 0,
                                          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);

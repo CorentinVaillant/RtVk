@@ -6,7 +6,7 @@
 #include <fastgltf/core.hpp>
 #include <volk.h>
 
-class Mesh  {
+class Mesh {
   // -- Attributs
 private:
   std::vector<TriangleIndices> _indices;
@@ -22,6 +22,14 @@ public:
   // -- Methods
 public:
   size_t triangle_count() const { return _indices.size(); }
+
+  float area(const Vertex *vertices) const {
+    float result = 0.f;
+    for (const TriangleIndices &tri : _indices)
+      result += tri.area(vertices);
+
+    return result;
+  }
 
   void write_indices_into_vec(std::vector<TriangleIndices> &out) const {
     for (const auto &tri : _indices) {
@@ -49,6 +57,7 @@ public:
 
   // -- IHittable impl
 public:
-  bool hit(Ray r, Interval ray_t, HitRecord *records, std::span<const Vertex> vertex_buffer) const;
+  bool hit(Ray r, Interval ray_t, HitRecord *records,
+           std::span<const Vertex> vertex_buffer) const;
   BBox get_bbox() const;
 };

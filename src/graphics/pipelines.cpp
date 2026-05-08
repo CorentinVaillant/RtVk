@@ -86,7 +86,7 @@ RtPipeline::RtPipeline(VulkanContext &ctx, PipelineDescriptor &descriptor,
   init_descr_set_layout(ctx, descriptor);
   init_layout(descriptor);
 
-  uint32_t group_count = static_cast<uint32_t>(pipeline_infos.groups.size());
+  uint32_t group_count = pipeline_infos.groups.size();
 
   VkRayTracingPipelineCreateInfoKHR create_info{
       .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -125,33 +125,52 @@ RtPipeline::RtPipeline(VulkanContext &ctx, PipelineDescriptor &descriptor,
   vkGetRayTracingShaderGroupHandlesKHR(_ctxDevice, _rtPipeline, 0, group_count,
                                        total_handle_size, handles.data());
 
-  VkDeviceSize raygen_size = align_up(stride, base_alignement);
-  VkDeviceSize miss_size = align_up(stride, base_alignement);
-  VkDeviceSize hit_size = align_up(stride * (group_count - 2),
-                                   base_alignement); // -2 for raygen+miss
-  VkDeviceSize sbt_size = raygen_size + miss_size + hit_size;
-
   constexpr VkBufferUsageFlags SBT_BUFFER_USAGE =
       VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR |
       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
       VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
+  VkDeviceSize raygen_entry = align_up(stride, base_alignement);
+  VkDeviceSize miss_entry = align_up(stride, base_alignement);
+  VkDeviceSize hit_entry =
+      align_up(stride * pipeline_infos.hit_stride_count, base_alignement);
+
+  VkDeviceSize raygen_size = raygen_entry * pipeline_infos.raygen_count;
+  VkDeviceSize miss_size = miss_entry * pipeline_infos.miss_count;
+  VkDeviceSize hit_size = hit_entry * (pipeline_infos.hit_count / pipeline_infos.hit_stride_count);
+
+  VkDeviceSize sbt_size = raygen_size + miss_size + hit_size;
+
   _sbtBuffer = Buffer<uint8_t>(ctx, sbt_size, SBT_BUFFER_USAGE,
                                VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-  _sbtBuffer->write(0, handle_size, handles.data() + 0 * handle_size);
-  _sbtBuffer->write(raygen_size, handle_size, handles.data() + 1 * handle_size);
-  for (uint32_t i = 2; i < group_count; i++) {
-    _sbtBuffer->write(raygen_size + miss_size + (i - 2) * stride, handle_size,
-                      handles.data() + i * handle_size);
-  }
-
   VkDeviceAddress sbt_address = _sbtBuffer->get_device_adresse(_ctxDevice);
 
-  _raygen_region = {sbt_address, stride, stride};
-  _miss_region = {sbt_address + raygen_size, stride, miss_size};
-  _hit_region = {sbt_address + raygen_size + miss_size, stride, hit_size};
-  _callable_region = {0, 0, 0};
+  uint32_t non_hit = group_count - pipeline_infos.hit_count;
+
+  // Raygen
+  for (uint32_t i = 0; i < pipeline_infos.raygen_count; i++)
+    _sbtBuffer->write(i * raygen_entry, handle_size,
+                      handles.data() + i * handle_size);
+
+  // Miss
+  for (uint32_t i = pipeline_infos.raygen_count; i < non_hit; i++)
+    _sbtBuffer->write(raygen_size +
+                          (i - pipeline_infos.raygen_count) * miss_entry,
+                      handle_size, handles.data() + i * handle_size);
+
+  // Hit
+  for (uint32_t i = non_hit; i < group_count; i++)
+    _sbtBuffer->write(raygen_size + miss_size + (i - non_hit) * hit_entry,
+                      handle_size, handles.data() + i * handle_size);
+
+  _raygen_region = {sbt_address, raygen_entry, raygen_size};
+  _miss_region = {sbt_address + raygen_size, miss_entry, miss_size};
+  _hit_region = {sbt_address + raygen_size + miss_size, hit_entry, hit_size};
+  _callable_region = {0, 0, 0}; // ~ No callable region for now, no need of it
+
+  LOG(5, "raygen_region = {{ {}, {}, {}}}",sbt_address, raygen_entry, raygen_size);
+  LOG(5, "_miss_region = {{ {}, {}, {}}}",sbt_address + raygen_size, miss_entry, miss_size);
+  LOG(5, "_hit_region = {{ {}, {}, {}}}",sbt_address + raygen_size + miss_size, hit_entry, hit_size);
 }
 
 RtPipeline::~RtPipeline() {

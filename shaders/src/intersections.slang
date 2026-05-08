@@ -26,12 +26,14 @@ void lightIntersection()
         float t;
         if (hit_sphere(ray, light_point.position, light_point.radius, t))
         {
-            attr.emision = light_point.emission;
+            attr.index = light_index;
+            attr.ray = ray;
             ReportHit(t, 0, attr);
         }
     }
 }
 
+// Here because if not present lightIntersection is renamed to main.
 [shader("intersection")]
 void dummy()
 {

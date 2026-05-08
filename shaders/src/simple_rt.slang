@@ -10,7 +10,7 @@ import "../modules/lights";
 import "../modules/geometry";
 
 [shader("raygeneration")]
-void rayGen()
+void main()
 {
     uint2 imageSize;
     resultTexture.GetDimensions(imageSize.x, imageSize.y);
@@ -31,7 +31,7 @@ void rayGen()
         payload.seed = seed;
         payload.depth = pushed.max_depth;
 
-        TraceRay(scene, RAY_FLAG_NONE, ~0, 0, 0, 0, ray, payload);
+        TraceRay(scene, RAY_FLAG_NONE, ~0u, 0, 0, 0, ray, payload);
 
         result_color += clamp(payload.color, 0, 1);
         seed = payload.seed;
@@ -40,13 +40,8 @@ void rayGen()
 
     let nan_eval = isnan(result_color);
     if (nan_eval.x || nan_eval.y || nan_eval.z || nan_eval.w)
-        resultTexture[threadIdx.xy] = Color(1.,0,0, 1);
+        resultTexture[threadIdx.xy] = Color(1., 0, 0, 1);
     else
         resultTexture[threadIdx.xy] = result_color;
-}
 
-[shader("miss")]
-void miss(inout RayPayload payload)
-{
-    shade_miss(payload);
 }

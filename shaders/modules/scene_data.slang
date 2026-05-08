@@ -12,9 +12,10 @@ public enum PrimitiveType {
 public struct RendererInstance {
     public uint32_t materialId;
     public uint32_t indexOffset;
-    public uint32_t _indexCount;
 
-    uint32_t pad2;
+    public float mesh_area;
+
+    uint32_t _pad;
 };
 
 public struct Vertex

@@ -11,6 +11,7 @@ struct LightPoint {
 
 struct LightMesh {
   glm::vec4 emission;
+  float area;
   uint32_t start_index;
   uint32_t end_index;
 };
@@ -31,22 +32,23 @@ struct alignas(STD140_ALIGNEMENT) Light {
   LightType type;
   uint32_t start_index, end_index;
   uint32_t _pad;
-  
+
   glm::vec4 emission;
-  
+
   glm::vec3 position_forward_vec;
-  float radius_angle;
-  
+  float radius_angle_area;
+
   static constexpr uint32_t BINDING = 8;
   static constexpr uint32_t HIT_GROUP = 2;
 
   Light(LightPoint p)
       : type(LightType::Point), emission(p.emission),
-        position_forward_vec(p.position), radius_angle(p.radius) {}
+        position_forward_vec(p.position), radius_angle_area(p.radius) {}
 
   Light(LightMesh m)
       : type(LightType::Mesh), start_index(m.start_index),
-        end_index(m.end_index), emission(m.emission) {}
+        end_index(m.end_index), emission(m.emission),
+        radius_angle_area(m.area) {}
 
   Light(LightSun s)
       : type(LightType::Sun), emission(s.emission),
@@ -54,7 +56,7 @@ struct alignas(STD140_ALIGNEMENT) Light {
 
   std::optional<BBox> get_bbox() const {
     if (type == LightType::Point)
-      return BBox(position_forward_vec, radius_angle).padded();
+      return BBox(position_forward_vec, radius_angle_area).padded();
     else
       return std::nullopt;
   }

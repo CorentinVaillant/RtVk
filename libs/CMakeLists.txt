@@ -8,8 +8,6 @@ add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(SDL EXCLUDE_FROM_ALL)
 add_subdirectory(Vulkan-Utility-Libraries)
 
-# AJOUTEZ CETTE LIGNE si Vulkan-Utility-Libraries n'exporte pas de target
-# (sinon passez directement à l'étape 2)
 if(NOT TARGET VulkanUtilityHeaders)
     add_library(VulkanUtilityHeaders INTERFACE)
     target_include_directories(VulkanUtilityHeaders INTERFACE 

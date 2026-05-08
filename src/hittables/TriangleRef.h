@@ -40,6 +40,13 @@ public:
     return vertices[_v3].position;
   }
 
+  float area(const Vertex *vertices) const {
+    glm::vec3 e1 = y(vertices) - x(vertices);
+    glm::vec3 e2 = z(vertices) - x(vertices);
+
+    return 0.5 * glm::length(glm::cross(e1, e2));
+  }
+
   glm::vec3 get_normal(const Vertex *v) const {
     // if no valid normals, compute normal from the position
     if (vec_near_zero(v1(v).normal) && vec_near_zero(v2(v).normal) &&

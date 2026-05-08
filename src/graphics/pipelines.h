@@ -62,7 +62,11 @@ private:
 
 struct RtPipelineCreateInfos {
   uint32_t max_rt_depth = 10;
+  uint32_t raygen_count, miss_count, hit_count;
+  uint32_t hit_stride_count;
   std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
+
+  uint32_t group_count() const { return raygen_count + miss_count + hit_count; }
 };
 
 class RtPipeline {
@@ -79,9 +83,10 @@ public:
 
   // -- Getters
   const Buffer<uint8_t> &get_sbt_buffer() const { return _sbtBuffer.value(); }
-  const VkSampler get_sampler() const {return _sampler;}
-  const VkDescriptorSetLayout get_descr_set_layout() const {return _desrSetLayout;}
-  
+  const VkSampler get_sampler() const { return _sampler; }
+  const VkDescriptorSetLayout get_descr_set_layout() const {
+    return _desrSetLayout;
+  }
 
   // -- Methods --
   void bind(VkCommandBuffer cmd, VkDescriptorSet descriptor);

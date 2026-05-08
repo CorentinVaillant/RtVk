@@ -130,6 +130,7 @@ public:
   void upload_meshes(VulkanContext &ctx, const Buffer<> &vbuff,
                      const Buffer<> &ibuff, size_t index_offset,
                      std::span<const Material> materials,
+                     std::span<const Vertex> vertices,
                      std::vector<Blas> &blas_out,
                      std::vector<Instance> &instance_out,
                      std::vector<LightMesh> &emissive_out,
@@ -149,6 +150,7 @@ public:
         if (lenght_sq(emission) >= MIN_SQ_EMISSION) {
           emissive_out.emplace_back(LightMesh{
               .emission = emission,
+              .area = mesh.area(vertices.data()),
               .start_index = static_cast<uint32_t>(mesh_offset),
               .end_index =
                   static_cast<uint32_t>(mesh_offset + mesh.triangle_count()),

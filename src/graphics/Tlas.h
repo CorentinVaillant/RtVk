@@ -17,7 +17,8 @@ private:
 
 public:
   using BlasSpanTab = std::span<std::span<Blas>>;
-  Tlas(VulkanContext &ctx, BlasSpanTab blas_span_tab)
+  Tlas(VulkanContext &ctx, BlasSpanTab blas_span_tab,
+       uint32_t triangle_sbt_offset = 0u, uint32_t procedural_sbt_offset = 2u)
       : _ctxDevice(ctx._device),
         _instanceBuffer(make_instance_buffer(ctx, blas_span_tab)),
         _tlasBuffer(std::nullopt) {
@@ -32,7 +33,7 @@ public:
                 blas._instanceCustomIndex, // InstanceId() call
             .mask = 0xff,
             .instanceShaderBindingTableRecordOffset =
-                blas._isProcedural ? 1u : 0u,
+                blas._isProcedural ? procedural_sbt_offset : triangle_sbt_offset,
             .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
             .accelerationStructureReference = blas.get_device_addres(),
         });

@@ -82,8 +82,8 @@ public bool hit_sphere(RayDesc ray, Vec3 pos, float radius, inout HitAttribut hi
     // HIT !
     hit_record.time = root;
     let hit_p = hit_record.position;
-    Vec3 out_normal = (hit_p - pos) / radius;
-    hit_record.set_face_normal(ray.Direction, out_normal);
+    NVec3 out_normal = NVec3((hit_p - pos) / radius);
+    hit_record.set_face_normal(NVec3(ray.Direction), out_normal);
     float theta = acos(-hit_p.y);
     float phi = atan2(-hit_p.z, hit_p.x) + M_PI_F;
     hit_record.u = phi / M_TWO_PI_F;

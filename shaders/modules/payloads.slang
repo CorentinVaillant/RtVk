@@ -13,6 +13,7 @@ public struct RayPayload
 public struct PdfPayload {
     public bool hit = false;
     public float min_light_val;
+    public Vec3 origin;
 
     public float pdf_val = 0;
     public Vec3 hit_point;

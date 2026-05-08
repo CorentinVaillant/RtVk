@@ -69,7 +69,7 @@ public Vec2 random_in_unit_disk(inout uint seed)
     return ro * Vec2(cos(theta), sin(theta));
 }
 
-public Vec3 random_unit(inout uint seed)
+public NVec3 random_unit(inout uint seed)
 {
     // using polar cordinate
     let phi = random(seed, 0, M_TWO_PI_F);
@@ -80,7 +80,7 @@ public Vec3 random_unit(inout uint seed)
     let y = sin(phi) * sin_theta;
     let z = cos_theta;
 
-    return Vec3(x, y, z);
+    return NVec3(Vec3(x, y, z));
 }
 
 public Vec3 random_cosine_hemisphere(inout uint seed)

@@ -1,5 +1,4 @@
 implementing utils;
-
 // -- Constants -- //
 
 ///@return $ \pi $
@@ -30,6 +29,73 @@ public typealias Vec4 = vector<float, 4>;
 public typealias Reel = float;
 
 public typealias Color = vector<float, 4>;
+
+public struct Normalized<T, int N>
+    where T : __BuiltinFloatingPointType
+{
+    typealias Vec = vector<T, N>;
+    public Vec inner;
+
+    public __init(Vec vec)
+    {
+#ifndef NDEBUG
+        constexpr T EPSILON = T(1e-5);
+        constexpr T ONE = T(1);
+
+        let lenght_sq = dot(vec, vec);
+        if (abs(lenght_sq - ONE) > EPSILON)
+        {
+            printf("[ERR ] Not a normalized vector, got length : %f (%f > %f).\n", length(vec), abs(lenght_sq - ONE), EPSILON);
+        }
+#endif
+        this.inner = vec;
+    }
+
+    public __init(Vec vec, bool debug)
+    {
+        if (debug)
+        {
+            constexpr T EPSILON = T(1e-5);
+            constexpr T ONE = T(1);
+
+            let lenght_sq = dot(vec, vec);
+            if (abs(lenght_sq - ONE) > EPSILON)
+            {
+                printf("--DEBUG\n");
+                printf("[ERR ] Not a normalized vector, got length : %f (%f > %f).\n", length(vec), abs(lenght_sq - ONE), EPSILON);
+            }
+        }
+        this.inner = vec;
+    }
+
+    static public This from(Vec vec)
+    {
+        return This(normalize(vec));
+    }
+
+    public property vec : Vec
+    {
+        get() {
+            return inner;
+        }
+    }
+
+    public This neg()
+    {
+        return This(-this.vec);
+    }
+
+    public This operator -()
+    {
+        return This(-this.vec);
+    }
+}
+
+public typealias NVec2 = Normalized<float, 2>;
+public typealias NVec3 = Normalized<float, 3>;
+public typealias NVec4 = Normalized<float, 4>;
+
+#define typealias NVec3_DEBUG()
 // -- Complexe
 
 public struct Complexe
@@ -58,7 +124,7 @@ public struct Complexe
 
     public Reel mod_sq()
     {
-        return vec.x * vec.x + vec.y * vec.y;
+        return dot(vec, vec);
     }
 };
 
@@ -103,21 +169,21 @@ public Complexe pow_u(Complexe c, uint p)
 // -- ONB (OrthoNormal Base)
 public struct ONB
 {
-    public readonly Vec3 u, v, w;
+    public readonly NVec3 u, v, w;
 
     public property uvw : Mat3
     {
         get {
-            return Mat3(u, v, w);
+            return Mat3(u.vec, v.vec, w.vec);
         }
     }
 
-    public __init(Vec3 normal)
+    public __init(NVec3 normal)
     {
-        w = normalize(normal);
-        Vec3 a = (abs(w.x) > 0.9) ? Vec3(0, 1, 0) : Vec3(1, 0, 0);
-        v = normalize(cross(w, a));
-        u = cross(w, v);
+        w = normal;
+        Vec3 a = (abs(w.vec.x) > 0.9) ? Vec3(0, 1, 0) : Vec3(1, 0, 0);
+        v = NVec3::from(cross(w.vec, a));
+        u = NVec3(cross(w.vec, v.vec));
     }
 
     public Vec3 transform(Vec3 vector)
@@ -151,7 +217,7 @@ public float sq(float x)
 public Color mix(Color v1, Color v2, float mix_fact)
 {
     mix_fact = clamp(mix_fact, 0, 1);
-    
+
     return (1.f - mix_fact) * v1 + mix_fact * v2;
 }
 

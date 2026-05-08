@@ -162,7 +162,6 @@ private:
   }
 
 public:
-  // vulkan
   UploadedAccStruct upload_to_gpu(VulkanContext &ctx, DescriptorWriter &writter,
                                   std::span<const Material> materials) const {
 
@@ -208,8 +207,9 @@ public:
 
     size_t index_offset = 0;
     for (const Model &model : _models) {
-      model.upload_meshes(ctx, vbuff, ibuff, index_offset, materials, blas_vec,
-                          instance_vec, emissives, emissives_blas_indices);
+      model.upload_meshes(ctx, vbuff, ibuff, index_offset, materials, _vertices,
+                          blas_vec, instance_vec, emissives,
+                          emissives_blas_indices);
       index_offset += model.triangle_count();
     }
 
@@ -267,9 +267,9 @@ public:
     light_buffer.write_into_descriptor(writter, Light::BINDING,
                                        punctual_lights.size() * sizeof(Light),
                                        0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-
+                                       
     std::array<std::span<Blas>, 1> scene_blas_span_tab{
-        std::span<Blas>{blas_vec.data(), lights_index}};
+        std::span<Blas>{blas_vec}};
     std::vector<std::span<Blas>> light_blas_span{
         std::span<Blas>{blas_vec.begin() + lights_index, blas_vec.end()}};
     light_blas_span.reserve(1 + emissives_blas_indices.size());
@@ -283,8 +283,8 @@ public:
         .vertex_buffer = {std::move(vbuff)},
         .index_buffer = {std::move(ibuff)},
         .blas = std::move(blas_vec),
-        .scene = Tlas(ctx, scene_blas_span_tab),
-        .lights_scene = Tlas(ctx, light_blas_span),
+        .scene = Tlas(ctx, scene_blas_span_tab, 0u, 2u),
+        .lights_scene = Tlas(ctx, light_blas_span, 0u, 2u),
     };
   }
 };

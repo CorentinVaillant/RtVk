@@ -6,12 +6,11 @@ import "../utils";
 import "../scene_data";
 import "../payloads";
 import "../attributs";
-import "../scene_data";
 import "../materials";
 
 public void shade_miss(inout RayPayload payload)
 {
-    Color sky_color = Vec4(Vec3(0.3), 1);
+    Color sky_color = Vec4(Vec3(0.0f), 1);
 
     uint num_of_light = punctualLightBuffer.getCount();
     for (uint i = 0; i < num_of_light; i++)
@@ -20,8 +19,8 @@ public void shade_miss(inout RayPayload payload)
         {
             LightSun sun = punctualLightBuffer[i].get_sun_light();
 
-            let alignment = dot(normalize(sun.forward_vec), normalize(WorldRayDirection()));
-            if (alignment > cos(sun.angle))
+            let alignment = dot(sun.forward_vec.vec, normalize(WorldRayDirection()));
+            if (alignment > cos(sun.angle * 0.5))
             {
                 sky_color = sun.emission;
                 break;
@@ -34,13 +33,12 @@ public void shade_miss(inout RayPayload payload)
 
 public void shadeDebug(in RayDesc ray_in, inout RayPayload payload, HitAttribut attr)
 {
-    payload.color = Color((attr.normal + 1) / 2.f, 1.f);
+    payload.color = Color((attr.normal.vec + 1) / 2.f, 1.f);
     return;
 }
 
 public void shade(in RayDesc ray_in, inout RayPayload payload, HitAttribut attr)
 {
-
     // shadeDebug(ray_in, payload, attr);
     // return;
 
@@ -66,33 +64,39 @@ public void shade(in RayDesc ray_in, inout RayPayload payload, HitAttribut attr)
 
     if (scattr.skip_pdf)
     {
-        TraceRay(scene, ~0, 0, 0, 0, 0, scattr.skip_pdf_ray, payload);
+        TraceRay(scene, RAY_FLAG_NONE, ~0u, 0, 0, 0, scattr.skip_pdf_ray, payload);
         payload.color *= scattr.attenuation;
         return;
     }
 
-    let ray_origin = hit + normal * tMin * 2.0;
+    let ray_origin = hit + normal.vec * tMin * 2.0;
 
     let light_pdf = LightScenePdf(lightsScene, ray_origin);
 
     // generate scattered ray
     RayDesc scattr_ray;
+    float bsdf_pdf = 0;
     if (random(payload.seed, 0.f, 1.f) < 0.5)
     {
         scattr_ray = scattr.create_scatter_ray(ray_origin);
+        scattr_ray.TMin = tMin;
+        scattr_ray.TMax = tMax;
+        bsdf_pdf = scattr.pdf_val;
     }
     else
     {
         float t;
-        scattr_ray.Direction = light_pdf.generate(payload.seed, tMax, t);
+        scattr_ray.Direction = light_pdf.generate(payload.seed, tMax, t).vec;
         scattr_ray.Origin = ray_origin;
         scattr_ray.TMin = tMin;
         scattr_ray.TMax = tMax;
+
+        bsdf_pdf = material.scattering_pdf_value(ray_in, scattr_ray, attr);
     }
 
-    let pdf_value : float = 0.5 * light_pdf.value(scattr_ray.Direction) + 0.5 * (scattr.pdf_val);
+    let pdf_value : float = 0.5 * light_pdf.value(scattr_ray.Direction) + 0.5 * bsdf_pdf;
 
-    TraceRay(scene, ~0u, 0, 0, 0, 0, scattr_ray, payload);
+    TraceRay(scene, RAY_FLAG_NONE, ~0, 0, 0, 0, scattr_ray, payload);
 
     let color_from_scatter = (scattr.attenuation * payload.color) / pdf_value;
 
