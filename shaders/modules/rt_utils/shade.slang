@@ -33,7 +33,10 @@ public void shade_miss(inout RayPayload payload)
 
 public void shadeDebug(in RayDesc ray_in, inout RayPayload payload, HitAttribut attr)
 {
-    payload.color = Color((attr.normal.vec + 1) / 2.f, 1.f);
+
+    let material = materialBuffer[attr.material_index];
+
+    payload.color = material.brdf.attenuation;
     return;
 }
 
@@ -56,7 +59,7 @@ public void shade(in RayDesc ray_in, inout RayPayload payload, HitAttribut attr)
     let color_from_emission : Color = material.emited(ray_in, attr, attr.uv);
 
     ScatterAttribut scattr;
-    if (!material.scatter(ray_in, attr, payload.seed, scattr))
+    if (!material.brdf.scatter(ray_in, attr, payload.seed, scattr))
     {
         payload.color = color_from_emission;
         return;
@@ -91,7 +94,7 @@ public void shade(in RayDesc ray_in, inout RayPayload payload, HitAttribut attr)
         scattr_ray.TMin = tMin;
         scattr_ray.TMax = tMax;
 
-        bsdf_pdf = material.scattering_pdf_value(ray_in, scattr_ray, attr);
+        bsdf_pdf = material.brdf.distribution(ray_in, scattr_ray, attr);
     }
 
     let pdf_value : float = 0.5 * light_pdf.value(scattr_ray.Direction) + 0.5 * bsdf_pdf;

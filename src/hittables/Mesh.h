@@ -2,6 +2,7 @@
 
 #include "graphics/Blas.h"
 #include "hittables/TriangleRef.h"
+#include "renderer/Material.h"
 #include "renderer/renderer_utils.h"
 #include <fastgltf/core.hpp>
 #include <volk.h>
@@ -52,7 +53,7 @@ public:
   }
 
   glm::vec4 emission(std::span<const Material> materials) const {
-    return materials[_material_index]._emission;
+    return materials[_material_index].emission;
   }
 
   // -- IHittable impl

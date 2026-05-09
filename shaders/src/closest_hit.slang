@@ -57,8 +57,8 @@ void meshPdfHit(inout PdfPayload payload, in BuiltInTriangleIntersectionAttribut
     uint3 idx = indexBuffer[tri_index + instance.indexOffset];
 
     // Test if it is a light source
-    Brdf brdf = materialBuffer[instance.materialId];
-    if (payload.min_light_val > luminance(brdf.emission))
+    Material Material = materialBuffer[instance.materialId];
+    if (payload.min_light_val > luminance(Material.emission))
         return;
 
     Vertex v0 = vertexBuffer[idx.x];

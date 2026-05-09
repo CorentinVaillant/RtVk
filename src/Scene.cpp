@@ -38,14 +38,14 @@ std::vector<Scene> Scene::load_from_gltf(std::filesystem::path gltf_path) {
 
   for (const fastgltf::Material &mat : asset.materials) {
     Material m{};
-    m._albedo = {
+    m.brdf.attenuation = {
         mat.pbrData.baseColorFactor[0],
         mat.pbrData.baseColorFactor[1],
         mat.pbrData.baseColorFactor[2],
         mat.pbrData.baseColorFactor[3],
     };
-    m._roughness = mat.pbrData.roughnessFactor;
-    m._emission = glm::vec4(mat.emissiveFactor[0], mat.emissiveFactor[1],
+    m.brdf.roughness = mat.pbrData.roughnessFactor;
+    m.emission = glm::vec4(mat.emissiveFactor[0], mat.emissiveFactor[1],
                             mat.emissiveFactor[2], 0.f) *
                   mat.emissiveStrength;
     materials.emplace_back(m);

@@ -174,21 +174,6 @@ struct alignas(16) Vertex {
   static constexpr uint32_t BINDING = 6;
 };
 
-struct alignas(16) Material {
-  Color _albedo;
-  Color _emission = Color(0);
-  float _roughness;
-
-  constexpr Material(Color albedo, Color emission, float roughness)
-      : _albedo(albedo), _emission(emission), _roughness(roughness) {}
-
-  constexpr Material()
-      : _albedo(0.906f, 0.906f, 0.906f, 1.f), _emission(0.f), _roughness(0.5f) {
-  }
-};
-
-inline constexpr Material DEFAULT_MATERIAL = Material();
-
 // -- Vectors utils
 
 using glm::xyz;

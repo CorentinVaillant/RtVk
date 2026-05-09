@@ -33,7 +33,7 @@ public RaytracingAccelerationStructure lightsScene;
 public ConstantBuffer<RendererUniforms> uni;
 
 [[vk::binding(BindingNums.Material, 0)]]
-public StructuredBuffer<Brdf> materialBuffer;
+public StructuredBuffer<Material> materialBuffer;
 
 [[vk::binding(BindingNums.Instances, 0)]]
 public StructuredBuffer<RendererInstance> instances;
